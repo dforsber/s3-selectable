@@ -1,8 +1,8 @@
 name: Publish package
 
 on:
-  push:
-    tags: ["v*"]
+  release:
+    types: [created]
 
 jobs:
   publish:
@@ -15,11 +15,8 @@ jobs:
         with:
           node-version: 12
           registry-url: https://npm.pkg.github.com/
-          scope: "@dforsber"
       - name: Install modules with frozen lockfile and build
-        run: |
-          yarn install --frozen-lockfile
-          yarn build
+        run: yarn install --frozen-lockfile --ignore-optional --production
       - name: Publish to repository
         run: yarn publish
         env:
