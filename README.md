@@ -1,8 +1,6 @@
 # s3-selectable - S3 Select over a Glue Table
 
-## TL;DR
-
-This module runs parallel [S3 Select](https://aws.amazon.com/blogs/developer/introducing-support-for-amazon-s3-select-in-the-aws-sdk-for-javascript/) over all the S3 Keys of a [Glue Table](https://docs.aws.amazon.com/glue/latest/dg/tables-described.html) and returns a single [merged event stream](https://github.com/grncdr/merge-stream). The API is the same as for S3 Select NodeJS SDK, i.e. params are passed thorugh, but `Bucket` and `Key` are replaced from values for the Glue Table S3 Data.
+This module runs parallel [S3 Select](https://aws.amazon.com/blogs/developer/introducing-support-for-amazon-s3-select-in-the-aws-sdk-for-javascript/) over all the S3 Keys of a [Glue Table](https://docs.aws.amazon.com/glue/latest/dg/tables-described.html) and returns a single [merged event stream](https://github.com/grncdr/merge-stream). The API is the same as for [S3 Select NodeJS SDK (`S3.selectObjectContent`)](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#selectObjectContent-property), i.e. params are passed thorugh, but `Bucket` and `Key` are replaced from values for the Glue Table S3 Data.
 
 ```javascript
 import AWS from "aws-sdk";
@@ -34,7 +32,7 @@ selectStream.on("data", chunk => console.log(Buffer.from(chunk.Records?.Payload)
 
 [AWS S3 Select](https://docs.aws.amazon.com/AmazonS3/latest/API/API_SelectObjectContent.html) is a filtering stream over S3 Objects, where filtering is defined with SQL syntax. Glue Tables are metadata about structured data on S3 that can point to hundreds of different S3 Objects in separate Hive Partitions and Hive Buckets.
 
-S3 Select doesn't understand anything about Glue Tables, but it supports high parallelism. This module provides the same `s3.selectObjectContent` method in the `s3SelectOnTable` class, but makes `Bucket` and `Key` optional as those are read from the Glue Table itself. For each S3 Object in the Glue Table data location and partitions, it launches S3 Select and returns a single stream as merged stream of all the concurrent S3 Select calls.
+S3 Select doesn't understand anything about Glue Tables, but it supports high parallelism. This module provides the same `S3.selectObjectContent` method in the `s3SelectOnTable` class, but makes `Bucket` and `Key` optional as those are read from the Glue Table itself. For each S3 Object in the Glue Table data location and partitions, it launches S3 Select and returns a single stream as merged stream of all the concurrent S3 Select calls.
 
 When the class `s3SelectOnTable` is instantiated it triggers AWS API calls for fetching table metadata and getting all S3 Keys for the table data. You can then issue multiple S3 Select calls over the same table, while the metadata is in-memory.
 
