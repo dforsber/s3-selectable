@@ -11,7 +11,7 @@ export class GlueTableS3Keys {
   private async getTableBucket(): Promise<string> {
     const t = await this.table;
     const loc = t.StorageDescriptor?.Location;
-    const bucket = this.getBucketAndPrefixe(loc)[0];
+    const bucket = GlueTableS3Keys.getBucketAndPrefix(loc)[0];
     if (!bucket) throw new Error(`Invalid Table Location, must be S3 (can not find Bucket): ${loc}`);
     return bucket;
   }
@@ -65,7 +65,7 @@ export class GlueTableS3Keys {
   }
 
   private async getS3KeysList(location: string): Promise<string[]> {
-    const [Bucket, Prefix] = this.getBucketAndPrefixe(location);
+    const [Bucket, Prefix] = GlueTableS3Keys.getBucketAndPrefix(location);
     const params = { Bucket, Prefix };
     let keys: Array<ObjectKey | undefined> = [];
     let token: NextToken | undefined = undefined;
@@ -81,7 +81,7 @@ export class GlueTableS3Keys {
     return <string[]>keys.filter(k => !!k);
   }
 
-  private getBucketAndPrefixe(location: string | undefined): [string, string] {
+  public static getBucketAndPrefix(location: string | undefined): [string, string] {
     const vals = location?.split("//")?.pop()?.split("/");
     const Bucket = vals?.shift();
     const Prefix = vals?.join("/");
