@@ -16,7 +16,7 @@ jobs:
           node-version: 12
           registry-url: https://npm.pkg.github.com/
       - name: Install modules with frozen lockfile and build
-        run: yarn install --frozen-lockfile --ignore-optional --production
+        run: yarn install --frozen-lockfile --ignore-optional
       - name: Publish to repository
         run: yarn publish
         env:
