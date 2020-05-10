@@ -17,7 +17,9 @@ jobs:
           registry-url: https://npm.pkg.github.com/
           scope: "@dforsber"
       - name: Install modules with frozen lockfile and build
-        run: yarn install --frozen-lockfile --ignore-optional
+        run: |
+          yarn install --frozen-lockfile --ignore-optional
+          yarn build
       - name: Publish to repository
         run: yarn publish
         env:

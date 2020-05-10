@@ -15,7 +15,6 @@
     "registry": "https://npm.pkg.github.com/"
   },
   "scripts": {
-    "prepublish": "tsc",
     "prebuild": "yarn install --frozen-lockfile",
     "build": "tsc",
     "lint": "eslint \"./src/**/*.ts\" --fix",
