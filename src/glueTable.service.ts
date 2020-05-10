@@ -46,17 +46,18 @@ export class GlueTableS3Keys {
   }
 
   private async getPartitionLocations(): Promise<string[]> {
-    let allLocations: string[] = [];
     const DatabaseName = this.params.databaseName;
     const TableName = this.params.tableName;
-    let params = { DatabaseName, TableName };
+    const params = { DatabaseName, TableName };
+    let allLocations: string[] = [];
     let token: Token | undefined = undefined;
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       const p: GetPartitionsRequest = token ? { ...params, NextToken: token } : params;
       const { Partitions, NextToken } = await this.glue.getPartitions(p).promise();
       if (!Partitions) throw new Error(`No partitions: ${TableName}`);
       const locations = <string[]>Partitions.map(p => p.StorageDescriptor?.Location).filter(p => p !== undefined);
-      allLocations.concat(locations);
+      allLocations = allLocations.concat(locations);
       if (NextToken === undefined) break;
       token = NextToken;
     }
@@ -64,10 +65,11 @@ export class GlueTableS3Keys {
   }
 
   private async getS3KeysList(location: string): Promise<string[]> {
-    let keys: (ObjectKey | undefined)[] = [];
     const [Bucket, Prefix] = this.getBucketAndPrefixe(location);
     const params = { Bucket, Prefix };
+    let keys: Array<ObjectKey | undefined> = [];
     let token: NextToken | undefined = undefined;
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       const p: ListObjectsV2Request = token ? { ...params, ContinuationToken: token } : params;
       const { IsTruncated, Contents, NextContinuationToken } = await this.params.s3.listObjectsV2(p).promise();
