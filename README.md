@@ -1,4 +1,4 @@
-# Selectable - S3 Select over a Glue Table
+# s3-selectable - S3 Select over a Glue Table
 
 ## TL;DR
 
@@ -6,11 +6,11 @@ This module runs parallel [S3 Select](https://aws.amazon.com/blogs/developer/int
 
 ```javascript
 import AWS from "aws-sdk";
-import s3SelectOnTable from "dforsber/selectable";
+import S3SelectOnTable from "dforsber/s3-selectable";
 
 // NOTE: Instantiation of the class will start querying AWS Glue and S3 to
 //       fetch all S3 Object Keys that corresponds with the Glue Table data.
-const glueTable = new s3SelectOnTable({
+const glueTable = new S3SelectOnTable({
   s3: new AWS.S3({ region: "eu-west-1" }),
   glue: new AWS.Glue({ region: "eu-west-1" }),
   tableName: "elb_logs",
