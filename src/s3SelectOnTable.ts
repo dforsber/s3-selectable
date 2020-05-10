@@ -8,7 +8,7 @@ import {
   ProgressEvent,
 } from "aws-sdk/clients/s3";
 import { StreamingEventStream } from "aws-sdk/lib/event-stream/event-stream";
-import { GlueTable } from "./glueTable.service";
+import { GlueTableS3Keys } from "./glueTable.service";
 import mergeStream from "merge-stream";
 
 type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
@@ -31,7 +31,7 @@ export interface IS3SelectOnTable {
 export class s3SelectOnTable {
   private s3 = this.params.s3;
   private glue = this.params.glue;
-  private tableService = new GlueTable({
+  private tableService = new GlueTableS3Keys({
     s3: this.s3,
     glue: this.glue,
     databaseName: this.params.databaseName,

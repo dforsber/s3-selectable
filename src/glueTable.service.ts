@@ -2,7 +2,7 @@ import Glue, { Table, Token, GetPartitionsRequest } from "aws-sdk/clients/glue";
 import { IS3SelectOnTable } from "./s3SelectOnTable";
 import { ObjectKey, NextToken, ListObjectsV2Request } from "aws-sdk/clients/s3";
 
-export class GlueTable {
+export class GlueTableS3Keys {
   private table: Promise<Table> = this.getTable();
   private glue: Glue = this.params.glue;
 
