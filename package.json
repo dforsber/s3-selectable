@@ -1,0 +1,28 @@
+{
+  "name": "s3-selectable",
+  "version": "0.0.1",
+  "description": "S3 Select over Glue Table",
+  "main": "build/index.js",
+  "author": "Dan Forsberg",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "prebuild": "yarn install --frozen-lockfile",
+    "build": "tsc",
+    "lint": "eslint",
+    "test": "jest",
+    "clean": "npx rimraf build/"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.673.0",
+    "merge-stream": "^2.0.0",
+    "typescript": "^3.8.3"
+  },
+  "devDependencies": {
+    "@types/aws-sdk": "^2.7.0",
+    "@types/merge-stream": "^1.1.2",
+    "@types/node": "^13.13.5",
+    "eslint": "^7.0.0",
+    "rimraf": "^3.0.2"
+  }
+}
