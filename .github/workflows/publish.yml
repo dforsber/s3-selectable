@@ -1,0 +1,26 @@
+name: Publish package
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@master
+      - name: Setup node
+        uses: actions/setup-node@v1
+        with:
+          node-version: 12
+          registry-url: https://npm.pkg.github.com/
+          scope: "@dforsber"
+      - name: Install modules with frozen lockfile and build
+        run: |
+          yarn install --frozen-lockfile
+          yarn build
+      - name: Publish to repository
+        run: yarn publish
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}

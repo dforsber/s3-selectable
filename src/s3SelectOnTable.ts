@@ -11,7 +11,7 @@ import { StreamingEventStream } from "aws-sdk/lib/event-stream/event-stream";
 import { GlueTableS3Keys } from "./glueTable.service";
 import mergeStream from "merge-stream";
 
-type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+type PartialBy<TType, TKey extends keyof TType> = Omit<TType, TKey> & Partial<Pick<TType, TKey>>;
 
 export type SelectStream = StreamingEventStream<{
   Records?: RecordsEvent;
@@ -28,7 +28,7 @@ export interface IS3SelectOnTable {
   s3: AWS.S3;
 }
 
-export class s3SelectOnTable {
+export class S3SelectOnTable {
   private s3 = this.params.s3;
   private glue = this.params.glue;
   private tableService = new GlueTableS3Keys({
