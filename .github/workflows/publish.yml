@@ -18,6 +18,20 @@ jobs:
           yarn build
           yarn lint
           yarn test
+
+  publish-npmjs:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: actions/setup-node@v1
+        with:
+          node-version: 12
+          registry-url: https://registry.npmjs.org/
+      - run: yarn publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+
   publish-gpr:
     needs: build
     runs-on: ubuntu-latest
