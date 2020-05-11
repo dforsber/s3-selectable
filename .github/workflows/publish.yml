@@ -28,7 +28,9 @@ jobs:
         with:
           node-version: 12
           registry-url: https://registry.npmjs.org/
-      - run: yarn publish --access public
+      - run: |
+          yarn build
+          yarn publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
 
@@ -43,6 +45,8 @@ jobs:
           always-auth: true
           registry-url: https://npm.pkg.github.com/
       - name: Publish to GitHub packages repository
-        run: yarn publish
+        run: |
+          yarn build
+          yarn publish --access public
         env:
           NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
