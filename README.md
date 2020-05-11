@@ -48,6 +48,20 @@ When the class `s3SelectOnTable` is instantiated it triggers AWS API calls for f
 
 `s3SelectOnTable` should be instantiated outside the Lambda handler, i.e. during the cold start. This way warm Lambda container has the Glue Table "metadata" already in-memory.
 
+## Scalability with Parquet
+
+If the Glue Table is sorted, partitioned and/or bucketed into a proper sized S3 Objects in Parquet, running this module with filters against the sorted column (e.g. row numbers for paging) will give high performance in terms of low latency and high data throughput. S3 Select is a pushdown closer to where the data is stored and supports thousands of concurrent API calls. This allows processing tables that map to huge amounts of data.
+
+### Improvement ideas
+
+- Add support for compression for the merged stream to benefit of better throughput, especially if running this in a Lambda function e.g. with API Gateway
+
+- Working with tables with thousands of files could be improved with node workers in multiple CPU core environments
+
+- For sorted tables with Parquet files, cache also Parquet metadata and filter out S3 files that do not match with filtering criteria. This reduces the number of concurrent API calls, whilst improving scalability futhermore with big data tables
+
+- Use scan range for row based file formats to improve performance
+
 ### Known issues
 
 - The response data is a combination of response data from all the parallal s3 select calls. Thus, g.e. `LIMIT 10`, will apply to all individual calls. Similarly, if you s3 select sorted table the results will not be sorted as the individual streams are combined as they send data. For the same reason, the merged stream may have multiple events of the same type (like "end") as the source consists of multiple independent streams.
@@ -55,3 +69,5 @@ When the class `s3SelectOnTable` is instantiated it triggers AWS API calls for f
 - S3 select supports [scan range](https://docs.aws.amazon.com/AmazonS3/latest/API/API_SelectObjectContent.html#AmazonS3-SelectObjectContent-request-ScanRange), so it is possible to parallalize multiple S3 Selects against single S3 Object. Using scan range is good for row based formats like CSV and JSON. This module does not use scan ranges as it is mainly targeted for Parquet file use cases ("indexed big data").
 
 - Please note that the [maximum uncompressed row group size is 256MB for Parquet](https://docs.aws.amazon.com/AmazonS3/latest/dev/selecting-content-from-objects.html) files with S3 Select, so you have to partition and bucket your big data accordingly.
+
+- S3 Select does not support `Map<>` columns with Parquet files.
