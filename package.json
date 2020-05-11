@@ -1,6 +1,6 @@
 {
   "name": "s3-selectable",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "S3 Select over Glue Table",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,6 +15,7 @@
     "url": "ssh://git@github.com:dforsber/s3-selectable.git"
   },
   "scripts": {
+    "prepublish": "rm -f dist/*.test.*",
     "prebuild": "yarn install --frozen-lockfile",
     "build": "tsc",
     "lint": "eslint \"./src/**/*.ts\" --fix",
