@@ -5,29 +5,35 @@
 This module runs parallel [S3 Select](https://aws.amazon.com/blogs/developer/introducing-support-for-amazon-s3-select-in-the-aws-sdk-for-javascript/) over all the S3 Keys of a [Glue Table](https://docs.aws.amazon.com/glue/latest/dg/tables-described.html) and returns a single [merged event stream](https://github.com/grncdr/merge-stream). The API is the same as for [S3 Select NodeJS SDK (`S3.selectObjectContent`)](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#selectObjectContent-property), i.e. params are passed thorugh, but `Bucket` and `Key` are replaced from values for the Glue Table S3 Data.
 
 ```javascript
-import AWS from "aws-sdk";
-import S3SelectOnTable from "dforsber/s3-selectable";
+const AWS = require("aws-sdk");
+const { S3SelectOnTable } = require("@dforsber/s3-selectable");
 
-// NOTE: Instantiation of the class will start querying AWS Glue and S3 to
-//       fetch all S3 Object Keys that corresponds with the Glue Table data.
-const glueTable = new S3SelectOnTable({
-  s3: new AWS.S3({ region: "eu-west-1" }),
-  glue: new AWS.Glue({ region: "eu-west-1" }),
-  tableName: "elb_logs",
-  databaseName: "sampledb",
-});
+async function main() {
+  // NOTE: Instantiation of the class will start querying AWS Glue and S3 to
+  //       fetch all S3 Object Keys that corresponds with the Glue Table data.
+  const glueTable = new S3SelectOnTable({
+    s3: new AWS.S3({ region: "eu-west-1" }),
+    glue: new AWS.Glue({ region: "eu-west-1" }),
+    tableName: "elb_logs",
+    databaseName: "sampledb",
+  });
 
-const selectStream = await glueTable.selectObjectContent({
-  // Bucket: "BucketIsOptionalAndNotUsed",
-  // Key: "KeyIsOptionalAndNotUsed",
-  // ..otherwise the interface is the same.
-  ExpressionType: "SQL",
-  InputSerialization: { CSV: {} },
-  OutputSerialization: { JSON: {} },
-  Expression: "SELECT * FROM S3Object LIMIT 2",
-});
+  const selectStream = await glueTable.selectObjectContent({
+    // Bucket: "BucketIsOptionalAndNotUsed",
+    // Key: "KeyIsOptionalAndNotUsed",
+    // ..otherwise the interface is the same.
+    ExpressionType: "SQL",
+    InputSerialization: { CSV: {} },
+    OutputSerialization: { JSON: {} },
+    Expression: "SELECT * FROM S3Object LIMIT 2",
+  });
 
-selectStream.on("data", chunk => console.log(Buffer.from(chunk.Records?.Payload).toString()));
+  selectStream.on("data", chunk => {
+    if (chunk.Records && chunk.Records.Payload) console.log(Buffer.from(chunk.Records.Payload).toString());
+  });
+}
+
+main().catch(err => console.log(err));
 ```
 
 ## Single S3 Select stream over multiple files
