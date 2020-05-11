@@ -1,14 +1,22 @@
 {
   "name": "@dforsber/s3-selectable",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "S3 Select over Glue Table",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "author": "Dan Forsberg",
+  "author": "dforsber",
   "license": "MIT",
   "private": false,
   "files": [
     "dist/*"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dforsber/s3-selectable"
+  },
+  "keywords": [
+    "S3",
+    "Glue Table"
   ],
   "scripts": {
     "prepublish": "rm -f dist/*.test.*",
