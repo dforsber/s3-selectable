@@ -1,1 +1,1 @@
-export { IS3SelectOnTable, S3SelectOnTable } from "./s3SelectOnTable";
+export { IS3SelectOnTable, S3SelectOnTable } from "./s3Selectable";
