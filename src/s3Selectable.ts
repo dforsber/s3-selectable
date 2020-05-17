@@ -8,7 +8,7 @@ import {
   ProgressEvent,
 } from "aws-sdk/clients/s3";
 import { StreamingEventStream } from "aws-sdk/lib/event-stream/event-stream";
-import { GlueTableS3Keys } from "./glueTable.service";
+import { GlueTableToS3KeysMapper } from "./mappers/glueTable.mapper";
 import mergeStream from "merge-stream";
 
 type PartialBy<TType, TKey extends keyof TType> = Omit<TType, TKey> & Partial<Pick<TType, TKey>>;
@@ -31,7 +31,7 @@ export interface IS3SelectOnTable {
 export class S3SelectOnTable {
   private s3 = this.params.s3;
   private glue = this.params.glue;
-  private tableService = new GlueTableS3Keys({
+  private mapper = new GlueTableToS3KeysMapper({
     s3: this.s3,
     glue: this.glue,
     databaseName: this.params.databaseName,
@@ -43,7 +43,7 @@ export class S3SelectOnTable {
   public async selectObjectContent(
     params: PartialBy<SelectObjectContentRequest, "Bucket" | "Key">,
   ): Promise<SelectStream> {
-    const { Bucket, Keys } = await this.tableService.getTableS3Keys();
+    const { Bucket, Keys } = await this.mapper.getS3Keys();
     const selectStreams = await Promise.all(
       Keys.map((Key: string) => this.getSelectStream({ ...params, Bucket, Key })),
     );

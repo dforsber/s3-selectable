@@ -4,6 +4,10 @@
 
 This module runs parallel [S3 Select](https://aws.amazon.com/blogs/developer/introducing-support-for-amazon-s3-select-in-the-aws-sdk-for-javascript/) over all the S3 Keys of a [Glue Table](https://docs.aws.amazon.com/glue/latest/dg/tables-described.html) and returns a single [merged event stream](https://github.com/grncdr/merge-stream). The API is the same as for [S3 Select NodeJS SDK (`S3.selectObjectContent`)](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#selectObjectContent-property), i.e. params are passed thorugh, but `Bucket` and `Key` are replaced from values for the Glue Table S3 Data.
 
+```shell
+yarn add @dforsber/s3-selectable
+```
+
 ```javascript
 const AWS = require("aws-sdk");
 const { S3SelectOnTable } = require("@dforsber/s3-selectable");
@@ -70,4 +74,4 @@ If the Glue Table is sorted, partitioned and/or bucketed into a proper sized S3 
 
 - Please note that the [maximum uncompressed row group size is 256MB for Parquet](https://docs.aws.amazon.com/AmazonS3/latest/dev/selecting-content-from-objects.html) files with S3 Select, so you have to partition and bucket your big data accordingly.
 
-- S3 Select does not support `Map<>` columns with Parquet files.
+- S3 Select does not support `Map<>` columns with Parquet files. Thus, instead of e.g. doing "SELECT \* FROM", select columns explicitly and do not include columns with `Map<>` types.
