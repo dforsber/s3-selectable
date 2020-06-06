@@ -87,7 +87,11 @@ export class S3Selectable {
   public async filterPartitionsByQuery(expression: Expression): Promise<string[]> {
     await this.getData();
     if (!this.partitionValues) return Promise.resolve(this.partitionValues);
-    return filterPartitions(this.partitionValues, this.partitionColumns, getSQLWhereString(expression));
+    return filterPartitions(
+      this.partitionValues,
+      this.partitionColumns,
+      getSQLWhereString(expression, this.partitionColumns),
+    );
   }
 }
 

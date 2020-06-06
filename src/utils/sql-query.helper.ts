@@ -22,21 +22,40 @@ export function getSQLWhereAST(sql: string): AST {
   return query.where;
 }
 
-export function getSQLWhereString(expression: string): string {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filterByPartsOnly(ast: any, partCols: string[]): any {
+  const nonFiltering = { type: "bool", value: true };
+  if (ast.type === "column_ref") return ast;
+  if (ast.left?.type === "column_ref" && !partCols.some(c => c === ast.left?.column)) return nonFiltering;
+  if (ast.right?.type === "column_ref" && !partCols.some(c => c === ast.right?.column)) return nonFiltering;
+  if (!ast.left || !ast.right) return ast;
+  return { ...ast, left: filterByPartsOnly(ast.left, partCols), right: filterByPartsOnly(ast.right, partCols) };
+}
+
+export function makePartitionSpecificAST(ast: AST, partitionColumns: string[]): AST {
+  if (!ast) return ast;
+  return filterByPartsOnly(ast, partitionColumns);
+}
+
+export function getSQLWhereStringFromAST(where: AST): string {
   const parser = new Parser();
   return parser
     .sqlify({
+      where,
       with: null,
       type: "select",
       options: null,
       distinct: null,
       columns: "*",
       from: [{ db: null, table: "s3Object", as: null }],
-      where: getSQLWhereAST(expression),
       groupby: null,
       having: null,
       orderby: null,
       limit: null,
     })
     .substring(25);
+}
+
+export function getSQLWhereString(expression: string, partitionColumns: string[]): string {
+  return getSQLWhereStringFromAST(makePartitionSpecificAST(getSQLWhereAST(expression), partitionColumns));
 }
