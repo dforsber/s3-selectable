@@ -52,9 +52,11 @@ When the class `s3SelectOnTable` is instantiated it triggers AWS API calls for f
 
 `s3SelectOnTable` should be instantiated outside the Lambda handler, i.e. during the cold start. This way warm Lambda container has the Glue Table "metadata" already in-memory.
 
-## Narrow scope with partition filters
+## Narrowed scope with partition filtering
 
-s3-selectable supports pre-filtering S3 Keys based on Glue Table partitions. The WHERE clause is extracted and matched with table partition columns with `node-sql-parser` and `sqlite3`. If WHERE clause contains any filters based partition columns those will be applied to filter parttions. S3 Keys are only listed for filtered partition list. This allows e.g. to stream events from a specific date range from a timeseries "database". Before filtering, all non-partition based clauses are set to TRUE so to not affect filtering.
+s3-selectable supports pre-filtering S3 Keys based on Glue Table partitions. The WHERE clause is extracted and matched with table partition columns with `node-sql-parser` and `sqlite3`. If WHERE clause contains any filters based partition columns those will be applied to filter parttions. S3 Keys are only listed for filtered partition list. This allows e.g. to stream events from a specific date range from a timeseries "database".
+
+NOTE: _Before filtering, all non-partition based clauses are set to TRUE. The SQLite database is created in-memory and partitions are added into table where the partition values are put into separate columns. This allows filtering partitions based on their values (e.g. `year`, `month`, and `day`)._
 
 ```sql
 SELECT * FROM logs WHERE year>=2019 AND month>=12
