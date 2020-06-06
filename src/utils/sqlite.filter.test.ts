@@ -1,5 +1,4 @@
 import { filterPartitions } from "./sqlite.filter";
-/* eslint-disable jest/no-disabled-tests */
 
 const partCols = ["year", "month"];
 

@@ -3,6 +3,7 @@ import { GetPartitionsRequest, GetTableRequest } from "aws-sdk/clients/glue";
 import { Readable, ReadableOptions } from "stream";
 import { S3Selectable, s3selectable } from "./s3-selectable";
 import { testTable, testTableKeys, testTablePartitions } from "../common/fixtures/glue-table";
+/* eslint-disable @typescript-eslint/ban-types */
 import {
   InputSerialization,
   ListObjectsV2Request,
