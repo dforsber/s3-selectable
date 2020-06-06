@@ -52,6 +52,16 @@ When the class `s3SelectOnTable` is instantiated it triggers AWS API calls for f
 
 `s3SelectOnTable` should be instantiated outside the Lambda handler, i.e. during the cold start. This way warm Lambda container has the Glue Table "metadata" already in-memory.
 
+## Narrowed scope with partition filtering
+
+s3-selectable supports pre-filtering S3 Keys based on Glue Table partitions. The WHERE clause is extracted and matched with table partition columns with `node-sql-parser` and `sqlite3`. If WHERE clause contains any filters based partition columns those will be applied to filter parttions. S3 Keys are only listed for filtered partition list. This allows e.g. to stream events from a specific date range from a timeseries "database".
+
+NOTE: _Before filtering, all non-partition based clauses are set to TRUE. The SQLite database is created in-memory and partitions are added into table where the partition values are put into separate columns. This allows filtering partitions based on their values (e.g. `year`, `month`, and `day`)._
+
+```sql
+SELECT * FROM logs WHERE year>=2019 AND month>=12
+```
+
 ## Scalability with Parquet
 
 If the Glue Table is sorted, partitioned and/or bucketed into a proper sized S3 Objects in Parquet, running this module with filters against the sorted column (e.g. row numbers for paging) will give high performance in terms of low latency and high data throughput. S3 Select is a pushdown closer to where the data is stored and supports thousands of concurrent API calls. This allows processing tables that map to huge amounts of data.
@@ -62,13 +72,19 @@ If the Glue Table is sorted, partitioned and/or bucketed into a proper sized S3 
 
 - Working with tables with thousands of files could be improved with node workers in multiple CPU core environments
 
+- Add support for max concurrent S3 Select streams. If a large table has tens of thousands of objects in S3, it is not possible to launch S3 Select over all of them. Also, if the stream consumption is slow, it makes sense not to launch overly large number of concurrent S3 Select streams. Also, the control plane may become too heavy with overly high concurrency. Doing pre-filtering with partitions avoids these shortcomings in most cases though.
+
+- Find out how long S3 Select stream is consumable and how slow it can be consumed to keep it "open".
+
 - For sorted tables with Parquet files, cache also Parquet metadata and filter out S3 files that do not match with filtering criteria. This reduces the number of concurrent API calls, whilst improving scalability futhermore with big data tables
 
 - Use scan range for row based file formats to improve performance
 
+- `sqlite3` is used to pre-filter partitions. SQLite could be used to add support for regular expression based partition filtering, which are not supported by S3 SELECT. In general, SQLite could be used to do stream post-filtering to allow taking benefit of all SQLite features (like regexps).
+
 ### Known issues
 
-- The response data is a combination of response data from all the parallal s3 select calls. Thus, g.e. `LIMIT 10`, will apply to all individual calls. Similarly, if you s3 select sorted table the results will not be sorted as the individual streams are combined as they send data. For the same reason, the merged stream may have multiple events of the same type (like "end") as the source consists of multiple independent streams.
+- The response data is a combination of response data from all the parallal s3 select calls. Thus, e.g. `LIMIT 10`, will apply to all individual calls. Similarly, if you s3 select sorted table the results will not be sorted as the individual streams are combined as they send data. For the same reason, the merged stream may have multiple events of the same type (like "end") as the source consists of multiple independent streams.
 
 - S3 select supports [scan range](https://docs.aws.amazon.com/AmazonS3/latest/API/API_SelectObjectContent.html#AmazonS3-SelectObjectContent-request-ScanRange), so it is possible to parallalize multiple S3 Selects against single S3 Object. Using scan range is good for row based formats like CSV and JSON. This module does not use scan ranges as it is mainly targeted for Parquet file use cases ("indexed big data").
 

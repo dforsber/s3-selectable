@@ -1,1 +1,1 @@
-export { IS3SelectOnTable, S3SelectOnTable } from "./s3Selectable";
+export { IS3Selectable, S3Selectable, IEventStream, s3selectable } from "./services/s3-selectable";
