@@ -1,6 +1,11 @@
 # s3-selectable - S3 Select over a Glue Table
 
 ![CI](https://github.com/dforsber/s3-selectable/workflows/CI/badge.svg?branch=master)
+![statements](badges/badge-statements.svg)
+![functions](badges/badge-functions.svg)
+![lines](badges/badge-lines.svg)
+![branches](badges/badge-branches.svg)
+![BuiltBy](https://img.shields.io/badge/TypeScript-Lovers-black.svg "img.shields.io")
 
 This module runs parallel [S3 Select](https://aws.amazon.com/blogs/developer/introducing-support-for-amazon-s3-select-in-the-aws-sdk-for-javascript/) over all the S3 Keys of a [Glue Table](https://docs.aws.amazon.com/glue/latest/dg/tables-described.html) and returns a single [merged event stream](https://github.com/grncdr/merge-stream). The API is the same as for [S3 Select NodeJS SDK (`S3.selectObjectContent`)](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#selectObjectContent-property), i.e. params are passed thorugh, but `Bucket` and `Key` are replaced from values for the Glue Table S3 Data.
 
