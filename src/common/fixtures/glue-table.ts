@@ -1,5 +1,4 @@
 /* eslint-disable max-len */
-/* eslint-disable @typescript-eslint/camelcase */
 export const testTable = {
   CreateTime: new Date("2020-05-25T19:50:34.000Z"),
   CreatedBy: "arn:aws:iam::589434896614:root",

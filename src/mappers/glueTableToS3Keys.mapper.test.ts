@@ -3,6 +3,7 @@ import { GetPartitionsRequest, GetTableRequest } from "aws-sdk/clients/glue";
 import { GlueTableToS3Key } from "./glueTableToS3Keys.mapper";
 import { ListObjectsV2Request } from "aws-sdk/clients/s3";
 import { testTable, testTableKeys, testTablePartitions } from "../common/fixtures/glue-table";
+/* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable max-len */
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-require-imports */
