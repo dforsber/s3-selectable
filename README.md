@@ -72,7 +72,7 @@ If the Glue Table is sorted, partitioned and/or bucketed into a proper sized S3 
 
 - Working with tables with thousands of files could be improved with node workers in multiple CPU core environments
 
-- Add support for max concurrent S3 Select streams. If a large table has thousands of objects in S3, it is not possible to launch S3 Select over all of them. Also, if the stream consumption is slow, it makes sense not to launch overly large number of concurrent S3 Select streams.
+- Add support for max concurrent S3 Select streams. If a large table has tens of thousands of objects in S3, it is not possible to launch S3 Select over all of them. Also, if the stream consumption is slow, it makes sense not to launch overly large number of concurrent S3 Select streams. Also, the control plane may become too heavy with overly high concurrency. Doing pre-filtering with partitions avoids these shortcomings in most cases though.
 
 - Find out how long S3 Select stream is consumable and how slow it can be consumed to keep it "open".
 
