@@ -2,7 +2,15 @@ import * as AWSMock from "aws-sdk-mock";
 import { GetPartitionsRequest, GetTableRequest } from "aws-sdk/clients/glue";
 import { GlueTableToS3Key } from "./glueTableToS3Keys.mapper";
 import { ListObjectsV2Request } from "aws-sdk/clients/s3";
-import { testTable, testTableKeys, testTablePartitions } from "../common/fixtures/glue-table";
+import {
+  testTable,
+  testTableKeys,
+  testTablePartitions,
+  testTableWithoutStorage,
+  testTableWithoutStorageLocation,
+  testTableWithoutPartitionKeys,
+  testTableKeysNoPartitions,
+} from "../common/fixtures/glue-table";
 /* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable max-len */
 /* eslint-disable @typescript-eslint/no-var-requires */
@@ -14,18 +22,25 @@ let glueGetPartitionsCalled = 0;
 let s3ListObjectsV2Called = 0;
 AWSMock.setSDKInstance(AWS);
 AWSMock.mock("Glue", "getTable", (params: GetTableRequest, cb: Function) => {
-  if (params.Name !== "partitioned_and_bucketed_elb_logs_parquet") cb(new Error("Table not found"), null);
   glueGetTableCalled++;
-  cb(null, { Table: testTable });
+  if (params.Name === "noStorage") return cb(null, { Table: testTableWithoutStorage });
+  if (params.Name === "noStorageLocation") return cb(null, { Table: testTableWithoutStorageLocation });
+  if (params.Name === "noPartitionKeys") return cb(null, { Table: testTableWithoutPartitionKeys });
+  if (params.Name !== "partitioned_and_bucketed_elb_logs_parquet") return cb(null, {});
+  return cb(null, { Table: testTable });
 });
-AWSMock.mock("Glue", "getPartitions", (_params: GetPartitionsRequest, cb: Function) => {
+AWSMock.mock("Glue", "getPartitions", (params: GetPartitionsRequest, cb: Function) => {
   glueGetPartitionsCalled++;
+  if (params.TableName === "noPartitionKeys") return cb(null, {});
   cb(null, { Partitions: testTablePartitions });
 });
 AWSMock.mock("S3", "listObjectsV2", (params: ListObjectsV2Request, cb: Function) => {
-  const pref = params.Prefix ?? "";
   s3ListObjectsV2Called++;
-  cb(null, {
+  const pref = params.Prefix ?? "";
+  if (params.Bucket === "dummy-test-bucket2") {
+    return cb(null, { NextContinuationToken: undefined, Contents: testTableKeysNoPartitions.map(k => ({ Key: k })) });
+  }
+  return cb(null, {
     NextContinuationToken: undefined,
     Contents: testTableKeys.filter(k => k.includes(pref)).map(k => ({ Key: k })),
   });
@@ -35,13 +50,40 @@ const s3 = new AWS.S3({ region: "eu-west-1" });
 const glue = new AWS.Glue({ region: "eu-west-1" });
 
 let mapper: GlueTableToS3Key;
+const databaseName = "default";
+const tableName = "partitioned_and_bucketed_elb_logs_parquet";
 beforeEach(() => {
-  const databaseName = "default";
-  const tableName = "partitioned_and_bucketed_elb_logs_parquet";
   glueGetTableCalled = 0;
   glueGetPartitionsCalled = 0;
   s3ListObjectsV2Called = 0;
   mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName });
+});
+
+describe("Parameter and return value checks", () => {
+  it("throws when Glue is not provided", () => {
+    mapper = new GlueTableToS3Key({ glue: undefined, s3, databaseName: "db", tableName: "t" });
+    expect(() => mapper.getTable()).rejects.toThrowError();
+    expect(() => mapper.getPartitions()).rejects.toThrowError();
+  });
+  it("error handling when Glue Table is not found", async () => {
+    mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "nonExisting" });
+    await expect(async () => await mapper.getTable()).rejects.toThrowError("Table not found: nonExisting");
+  });
+  it("no storage descriptor", async () => {
+    mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "noStorage" });
+    await expect(async () => await mapper.getTable()).rejects.toThrowError();
+  });
+  it("no storage location", async () => {
+    mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "noStorageLocation" });
+    await expect(async () => await mapper.getTable()).rejects.toThrowError();
+  });
+  it("no partition keys", async () => {
+    mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "noPartitionKeys" });
+    const t = await mapper.getTable();
+    expect(t.PartitionKeys).toEqual(undefined);
+    const info = await mapper.getTableInfo();
+    expect(info.PartitionColumns).toEqual([]);
+  });
 });
 
 describe("When fetching partitioning information", () => {
@@ -55,6 +97,14 @@ describe("When fetching partitioning information", () => {
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(1);
     expect(s3ListObjectsV2Called).toEqual(10); // 10 partitions
+  });
+
+  it("table location keys when no partitions", async () => {
+    mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "noPartitionKeys" });
+    const t = await mapper.getTable();
+    expect(t.PartitionKeys).toEqual(undefined);
+    const keys = await mapper.getAllKeys();
+    expect(keys.length).toEqual(10);
   });
 
   it("correctly identifies table information", async () => {
@@ -78,14 +128,6 @@ describe("When fetching partitioning information", () => {
         ],
       }
     `);
-    expect(glueGetTableCalled).toEqual(1);
-    expect(glueGetPartitionsCalled).toEqual(0);
-    expect(s3ListObjectsV2Called).toEqual(0);
-  });
-
-  it("throws with non-existing table", async () => {
-    mapper = new GlueTableToS3Key({ glue, s3, databaseName: "nonexisting", tableName: "dummy" });
-    await expect(async () => mapper.getTableInfo()).rejects.toThrowError();
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(0);
     expect(s3ListObjectsV2Called).toEqual(0);

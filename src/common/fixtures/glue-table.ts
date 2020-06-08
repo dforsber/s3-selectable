@@ -133,6 +133,21 @@ export const testTable = {
   ViewExpandedText: "",
   ViewOriginalText: "",
 };
+export const testTableWithoutStorage = { ...testTable, StorageDescriptor: undefined };
+
+export const testTableWithoutStorageLocation = {
+  ...testTable,
+  StorageDescriptor: { ...testTable.StorageDescriptor, Location: undefined },
+};
+
+export const testTableWithoutPartitionKeys = {
+  ...testTable,
+  PartitionKeys: undefined,
+  StorageDescriptor: {
+    ...testTable.StorageDescriptor,
+    Location: "s3://dummy-test-bucket2/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e",
+  },
+};
 
 export const testTablePartitions = [
   {
@@ -685,6 +700,19 @@ export const testTablePartitions = [
       presto_version: "MCM-30399626",
     },
   },
+];
+
+export const testTableKeysNoPartitions = [
+  "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/20200525_195025_00011_xgnnv_bucket-00000",
+  "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/20200525_195025_00011_xgnnv_bucket-00001",
+  "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/20200525_195025_00011_xgnnv_bucket-00002",
+  "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/20200525_195025_00011_xgnnv_bucket-00003",
+  "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/20200525_195025_00011_xgnnv_bucket-00004",
+  "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/20200525_195025_00011_xgnnv_bucket-00005",
+  "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/20200525_195025_00011_xgnnv_bucket-00006",
+  "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/20200525_195025_00011_xgnnv_bucket-00007",
+  "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/20200525_195025_00011_xgnnv_bucket-00008",
+  "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/20200525_195025_00011_xgnnv_bucket-00009",
 ];
 
 export const testTableKeys = [

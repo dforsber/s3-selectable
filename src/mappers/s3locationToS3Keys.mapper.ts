@@ -25,8 +25,6 @@ export class S3LocationToKeys {
       keys.push(...Contents.map(k => k.Key));
       token = NextContinuationToken;
     } while (token);
-    // Table Location may match as a prefix with partition locations and thus
-    // provide duplicate results, thus, get unique values
-    return <string[]>[...new Set(keys.filter(k => !!k))];
+    return <string[]>keys.filter(k => !!k);
   }
 }

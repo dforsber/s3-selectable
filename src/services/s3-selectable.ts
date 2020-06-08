@@ -1,8 +1,7 @@
 import AWS from "aws-sdk";
 import mergeStream from "merge-stream";
 import { filterPartitions } from "../utils/sqlite.filter";
-import { getSQLWhereString } from "../utils/sql-query.helper";
-import { getTableAndDb } from "../utils/parse-db-and-table";
+import { getSQLWhereString, getTableAndDb } from "../utils/sql-query.helper";
 import { GlueTableToS3Key } from "../mappers/glueTableToS3Keys.mapper";
 import { StreamingEventStream } from "aws-sdk/lib/event-stream/event-stream";
 import {
