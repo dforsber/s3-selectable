@@ -2,7 +2,7 @@ import { Database } from "sqlite3";
 
 // TODO: function getKeyPartitionValues(key: string): string[] {}
 
-function getPartitionKeyValue(partition: string, partCol: string): string | undefined {
+export function getPartitionKeyValue(partition: string, partCol: string): string | undefined {
   const p = partition.split(`${partCol}=`)[1];
   if (!p) throw new Error(`Column "${partCol}" not found from partition "${partition}"`);
   return p.split("/").shift();

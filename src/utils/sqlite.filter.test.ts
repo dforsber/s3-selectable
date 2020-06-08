@@ -1,4 +1,4 @@
-import { filterPartitions } from "./sqlite.filter";
+import { filterPartitions, getPartitionKeyValue } from "./sqlite.filter";
 
 const partCols = ["year", "month"];
 
@@ -37,6 +37,10 @@ describe("When array of partitions are given", () => {
     expect((await filterPartitions(partitions2, partCols, "WHERE year=2019")).sort()).toEqual(
       partitions2.filter(p => p.includes("2019")).sort(),
     );
+  });
+
+  it(`correctly throws with non-existing column parameter`, async () => {
+    expect(() => getPartitionKeyValue("year=2020/month=12", "nonexisting")).toThrowError();
   });
 
   it(`correctly filters "year=2020 AND month>=4 AND month<=5" with partition(s)`, async () => {

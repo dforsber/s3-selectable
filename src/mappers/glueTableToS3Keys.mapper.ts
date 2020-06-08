@@ -80,7 +80,7 @@ export class GlueTableToS3Key {
     do {
       const p: GetPartitionsRequest = token ? { ...params, NextToken: token } : params;
       const { Partitions, NextToken } = await this.params.glue.getPartitions(p).promise();
-      if (!Partitions) throw new Error(`No partitions: ${this.params.tableName}`);
+      if (!Partitions) return [];
       this.partitions.push(...Partitions);
       token = NextToken;
     } while (token);
