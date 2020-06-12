@@ -41,16 +41,23 @@ class MockedSelectStream extends Readable {
   }
 }
 
+let glueGetTableCalled = 0;
+let glueGetPartitionsCalled = 0;
+let s3ListObjectsV2Called = 0;
+let selectObjectContent = 0;
 AWSMock.setSDKInstance(AWS);
 AWSMock.mock("Glue", "getTable", (params: GetTableRequest, cb: Function) => {
+  glueGetTableCalled++;
   if (params.Name !== "partitioned_and_bucketed_elb_logs_parquet")
     cb(new Error(`Table not found: ${params.Name}`), null);
   cb(null, { Table: testTable });
 });
 AWSMock.mock("Glue", "getPartitions", (_params: GetPartitionsRequest, cb: Function) => {
+  glueGetPartitionsCalled++;
   cb(null, { Partitions: testTablePartitions });
 });
 AWSMock.mock("S3", "listObjectsV2", (params: ListObjectsV2Request, cb: Function) => {
+  s3ListObjectsV2Called++;
   const pref = params.Prefix ?? "";
   cb(null, {
     NextContinuationToken: undefined,
@@ -58,6 +65,7 @@ AWSMock.mock("S3", "listObjectsV2", (params: ListObjectsV2Request, cb: Function)
   });
 });
 AWSMock.mock("S3", "selectObjectContent", (_params: SelectObjectContentRequest, cb: Function) => {
+  selectObjectContent++;
   cb(null, new MockedSelectStream());
 });
 
@@ -65,49 +73,11 @@ const s3 = new AWS.S3({ region: "eu-west-1" });
 const glue = new AWS.Glue({ region: "eu-west-1" });
 const [databaseName, tableName] = ["default", "partitioned_and_bucketed_elb_logs_parquet"];
 const params = { glue, s3, tableName, databaseName };
-
-describe("Test selected partition filtering", () => {
-  const partitionValues = [
-    "/ssl_protocol=-/elb_response_code=302",
-    "/ssl_protocol=TLSv1.2/elb_response_code=500",
-    "/ssl_protocol=-/elb_response_code=301",
-    "/ssl_protocol=-/elb_response_code=500",
-    "/ssl_protocol=TLSv1.2/elb_response_code=302",
-    "/ssl_protocol=TLSv1.2/elb_response_code=404",
-    "/ssl_protocol=-/elb_response_code=404",
-    "/ssl_protocol=TLSv1.2/elb_response_code=200",
-    "/ssl_protocol=TLSv1.2/elb_response_code=301",
-    "/ssl_protocol=-/elb_response_code=200",
-  ].sort();
-  it("when there is no WHERE", async () => {
-    const sql = "SELECT * FROM s3Object";
-    expect((await new S3Selectable(params).filterPartitionsByQuery(sql)).sort()).toEqual(partitionValues);
-  });
-  it("when there is single partition (1st) filter", async () => {
-    const sql = "SELECT * FROM s3Object WHERE ssl_protocol='-'";
-    expect((await new S3Selectable(params).filterPartitionsByQuery(sql)).sort()).toEqual(
-      partitionValues.filter(v => v.includes("ssl_protocol=-")).sort(),
-    );
-  });
-  it("when there is single partition (2nd) filter", async () => {
-    const sql = "SELECT * FROM s3Object WHERE elb_response_code='302'";
-    expect((await new S3Selectable(params).filterPartitionsByQuery(sql)).sort()).toEqual(
-      partitionValues.filter(v => v.includes("elb_response_code=302")).sort(),
-    );
-  });
-  it("when using two partitions for filtering", async () => {
-    const sql = "SELECT * FROM s3Object WHERE elb_response_code='302' AND ssl_protocol='-'";
-    expect((await new S3Selectable(params).filterPartitionsByQuery(sql)).sort()).toEqual(
-      partitionValues
-        .filter(v => v.includes("elb_response_code=302"))
-        .filter(v => v.includes("ssl_protocol=-"))
-        .sort(),
-    );
-  });
-  it("when using non-matching filter", async () => {
-    const sql = "SELECT * FROM s3Object WHERE elb_response_code='123' AND ssl_protocol='-'";
-    expect((await new S3Selectable(params).filterPartitionsByQuery(sql)).sort()).toEqual([]);
-  });
+beforeEach(() => {
+  glueGetTableCalled = 0;
+  glueGetPartitionsCalled = 0;
+  s3ListObjectsV2Called = 0;
+  selectObjectContent = 0;
 });
 
 describe("Test selectObjectContent", () => {
@@ -131,12 +101,27 @@ describe("Test selectObjectContent", () => {
     const sql = "SELECT * FROM s3Object WHERE elb_response_code='302' AND ssl_protocol='-'";
     const inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" };
     const outSer: OutputSerialization = { JSON: {} };
-    const rowsStream = await new S3Selectable(params).selectObjectContent({
+    const selectable = new S3Selectable(params);
+    await selectable.selectObjectContent({
       Expression: sql,
       ExpressionType: "SQL",
       InputSerialization: inpSer,
       OutputSerialization: outSer,
     });
+    expect(glueGetTableCalled).toEqual(1);
+    expect(glueGetPartitionsCalled).toEqual(1); // 1 table
+    expect(s3ListObjectsV2Called).toEqual(1); // 1 partition
+    expect(selectObjectContent).toEqual(10); // 10 objects
+    const rowsStream = await selectable.selectObjectContent({
+      Expression: sql,
+      ExpressionType: "SQL",
+      InputSerialization: inpSer,
+      OutputSerialization: outSer,
+    });
+    expect(glueGetTableCalled).toEqual(1);
+    expect(glueGetPartitionsCalled).toEqual(1); // 1 table
+    expect(s3ListObjectsV2Called).toEqual(2); // FIXME: cache also filtered partition set keys
+    expect(selectObjectContent).toEqual(20); // 2 * 10 objects
     const rows = await new Promise(r => {
       const rows: string[] = [];
       rowsStream.on("data", chunk => rows.push(Buffer.from(chunk).toString()));

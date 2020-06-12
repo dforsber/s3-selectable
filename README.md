@@ -35,7 +35,7 @@ async function main() {
   });
 
   selectStream.on("data", chunk => {
-    if (chunk.Records && chunk.Records.Payload) console.log(Buffer.from(chunk.Records.Payload).toString());
+    if (chunk.Records && chunk.Records.Payload) process.stdout.write(Buffer.from(chunk.Records.Payload).toString());
   });
 }
 

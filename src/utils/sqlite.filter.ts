@@ -1,7 +1,5 @@
 import { Database } from "sqlite3";
 
-// TODO: function getKeyPartitionValues(key: string): string[] {}
-
 export function getPartitionKeyValue(partition: string, partCol: string): string | undefined {
   const p = partition.split(`${partCol}=`)[1];
   if (!p) throw new Error(`Column "${partCol}" not found from partition "${partition}"`);
@@ -20,17 +18,14 @@ function sqliteAll(db: Database, sql: string): Promise<unknown[]> {
   });
 }
 
-async function createTable(partCols: string[]): Promise<Database> {
+export async function createTable(partCols: string[], parts: string[]): Promise<Database | undefined> {
+  if (!partCols.length || !parts.length) return;
   const db = new Database(":memory:");
-  const numCols = partCols.length + 1;
-  const cols = numCols > 1 ? `, ${partCols.map(c => `${c} STRING`).join(", ")}` : "";
+  const cols = `, ${partCols.map(c => `${c} STRING`).join(", ")}`;
   const sql = `CREATE TABLE partitions (partition STRING${cols})`;
   await sqliteRun(db, sql);
+  await insertPartitions(db, parts, partCols);
   return db;
-}
-
-function dropTable(db: Database): Promise<void> {
-  return sqliteRun(db, "DROP TABLE IF EXISTS partitions");
 }
 
 async function insertPartitions(db: Database, parts: string[], partCols: string[]): Promise<void> {
@@ -45,15 +40,16 @@ async function insertPartitions(db: Database, parts: string[], partCols: string[
   return;
 }
 
-export async function filterPartitions(
-  parts: string[],
-  partCols: string[],
-  where: string | null | undefined,
-): Promise<string[]> {
-  if (!where) return parts;
-  const db = await createTable(partCols);
-  await insertPartitions(db, parts, partCols);
-  const rows = <Array<{ partition: string }>>await sqliteAll(db, `SELECT partition FROM partitions ${where}`);
-  await dropTable(db);
-  return rows.map(row => row.partition);
+export class PartitionPreFilter {
+  private partsTable = createTable(this.partCols, this.parts);
+
+  constructor(private parts: string[], private partCols: string[]) {}
+
+  public async filterPartitions(where: string | null | undefined): Promise<string[]> {
+    if (!where) return this.parts;
+    const db = await this.partsTable;
+    if (!db) return this.parts;
+    const rows = <Array<{ partition: string }>>await sqliteAll(db, `SELECT partition FROM partitions ${where}`);
+    return rows.map(row => row.partition);
+  }
 }
