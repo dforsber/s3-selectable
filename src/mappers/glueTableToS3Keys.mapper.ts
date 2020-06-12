@@ -19,7 +19,7 @@ export class GlueTableToS3Key {
   private tableBucket!: string;
   private partitions!: Partition[];
   private partitionColumns!: string[];
-  private s3Keys: string[] | undefined = undefined;
+  private s3KeysFetcher = new S3LocationToKeys(this.params.s3);
 
   constructor(private params: PartialBy<IS3Selectable, "s3" | "glue">) {}
 
@@ -32,7 +32,7 @@ export class GlueTableToS3Key {
     const tableLocation = table.StorageDescriptor?.Location;
     if (!tableLocation) throw new Error(`No S3 Bucket found for table ${Name}`);
     this.tableLocation = tableLocation;
-    this.tableBucket = new S3LocationToKeys(this.tableLocation, this.params.s3).getBucketAndPrefix().Bucket;
+    this.tableBucket = this.s3KeysFetcher.getBucketAndPrefix(this.tableLocation).Bucket;
     this.partitionColumns = table.PartitionKeys?.map(col => col.Name) ?? [];
     this.table = table;
     return this.table;
@@ -46,8 +46,6 @@ export class GlueTableToS3Key {
   }
 
   public async getKeysByPartitions(values: string[]): Promise<string[]> {
-    const allKeys = values.length <= 0;
-    if (allKeys && this.s3Keys) return this.s3Keys;
     await this.getTable();
     await this.getPartitions();
     const partitionLocs = this.partitions
@@ -56,11 +54,10 @@ export class GlueTableToS3Key {
         Value: this.partitionColumns.reduce((a, c, i) => `${a}/${c}=${p.Values ? p.Values[i] : "ValueUndefined"}`, ""),
       }))
       .filter(p => values.length <= 0 || values.some(v => v.includes(p.Value)))
-      .map(p => p.StorageDescriptor?.Location);
-    const keys = await Promise.all(partitionLocs.map(loc => new S3LocationToKeys(loc, this.params.s3).getKeys()));
-    const flattened = keys.reduce((acc, curr) => [...acc, ...curr], []);
-    if (allKeys) this.s3Keys = flattened;
-    return flattened;
+      .map(p => p.StorageDescriptor?.Location)
+      .filter(l => !!l);
+    const keys = await Promise.all(partitionLocs.map(loc => this.s3KeysFetcher.getKeys(<string>loc)));
+    return keys.reduce((acc, curr) => [...acc, ...curr], []);
   }
 
   public async getPartitions(): Promise<Partition[]> {

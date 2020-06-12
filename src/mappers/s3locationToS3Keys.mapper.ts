@@ -2,29 +2,31 @@ import { errors } from "../common/errors.enum";
 import { ListObjectsV2Request, NextToken, ObjectKey } from "aws-sdk/clients/s3";
 
 export class S3LocationToKeys {
-  constructor(private location: string | undefined, private s3: AWS.S3 | undefined = undefined) {}
+  private cachedKeys: Map<string, string[]> = new Map();
+  constructor(private s3: AWS.S3 | undefined = undefined) {}
 
-  public getBucketAndPrefix(): { Bucket: string; Prefix: string } {
-    const vals = this.location?.split("//").slice(1).join("//").split("/");
-    const Bucket = vals?.shift();
-    const Prefix = vals?.join("/");
-    if (!Bucket || !Prefix) throw new Error(`Invalid S3 path: ${this.location}`);
-    return { Bucket, Prefix };
-  }
-
-  public async getKeys(): Promise<string[]> {
+  public async getKeys(location: string): Promise<string[]> {
     if (!this.s3) throw new Error(errors.noS3);
-    const { Bucket, Prefix } = this.getBucketAndPrefix();
-    const params = { Bucket, Prefix };
+    if (this.cachedKeys.has(location)) return this.cachedKeys.get(location) ?? [];
+    const params = this.getBucketAndPrefix(location);
     const keys: Array<ObjectKey | undefined> = [];
     let token: NextToken | undefined = undefined;
     do {
       const p: ListObjectsV2Request = token ? { ...params, ContinuationToken: token } : params;
       const { Contents, NextContinuationToken } = await this.s3.listObjectsV2(p).promise();
-      if (!Contents) throw new Error(`Invalid Contents for location: ${this.location}`);
+      if (!Contents) throw new Error(`Invalid Contents for location: s3://${params.Bucket}/${params.Prefix}`);
       keys.push(...Contents.map(k => k.Key));
       token = NextContinuationToken;
     } while (token);
-    return <string[]>keys.filter(k => !!k);
+    this.cachedKeys.set(location, <string[]>(keys.filter(k => !!k) ?? []));
+    return this.cachedKeys.get(location) ?? [];
+  }
+
+  public getBucketAndPrefix(location: string): { Bucket: string; Prefix: string } {
+    const vals = location?.split("//").slice(1).join("//").split("/");
+    const Bucket = vals?.shift();
+    const Prefix = vals?.join("/");
+    if (!Bucket || !Prefix) throw new Error(`Invalid S3 path: ${location}`);
+    return { Bucket, Prefix };
   }
 }

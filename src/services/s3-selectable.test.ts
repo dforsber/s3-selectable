@@ -120,7 +120,7 @@ describe("Test selectObjectContent", () => {
     });
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(1); // 1 table
-    expect(s3ListObjectsV2Called).toEqual(2); // FIXME: cache also filtered partition set keys
+    expect(s3ListObjectsV2Called).toEqual(1); // S3 Keys are cached per partition
     expect(selectObjectContent).toEqual(20); // 2 * 10 objects
     const rows = await new Promise(r => {
       const rows: string[] = [];

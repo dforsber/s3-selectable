@@ -25,40 +25,28 @@ const s3 = new AWS.S3({ region: "eu-west-1" });
 describe("Parameter and return value checks", () => {
   it("throws when S3 is not provided", async () => {
     const key = "s3://testbucket-temp/v2/testing/multiple/separators";
-    await expect(async () => await new S3LocationToKeys(key).getKeys()).rejects.toThrowError(errors.noS3);
-  });
-});
-
-describe("getKeys method", () => {
-  it("throws when S3 is not provided", async () => {
-    const key = "s3://dummy-test-bucket2/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e";
-    const keys = await new S3LocationToKeys(key, s3).getKeys();
-    expect(keys.length).toEqual(10);
+    await expect(async () => await new S3LocationToKeys().getKeys(key)).rejects.toThrowError(errors.noS3);
   });
 });
 
 describe("getBucketAndPrefix utility method", () => {
   it("gives correct location with multiple delimiters", () => {
     const key = "s3://testbucket-temp/v2/testing/multiple/separators";
-    const { Bucket, Prefix } = new S3LocationToKeys(key).getBucketAndPrefix();
+    const { Bucket, Prefix } = new S3LocationToKeys(s3).getBucketAndPrefix(key);
     expect(Bucket).toEqual("testbucket-temp");
     expect(Prefix).toEqual("v2/testing/multiple/separators");
   });
 
-  it("gives no location with multiple delimiters", () => {
-    expect(() => new S3LocationToKeys(undefined).getBucketAndPrefix()).toThrowError();
-  });
-
   it("gives correct location with double // ”empty” folder", () => {
     const key = "s3://testbucket-temp/v2/testing//multiple/separators";
-    const { Bucket, Prefix } = new S3LocationToKeys(key).getBucketAndPrefix();
+    const { Bucket, Prefix } = new S3LocationToKeys(s3).getBucketAndPrefix(key);
     expect(Bucket).toEqual("testbucket-temp");
     expect(Prefix).toEqual("v2/testing//multiple/separators");
   });
 
   it("gives correct location with double /// ”empty” folders", () => {
     const key = "s3://testbucket-temp/v2/testing//multiple/separators///and_more";
-    const { Bucket, Prefix } = new S3LocationToKeys(key).getBucketAndPrefix();
+    const { Bucket, Prefix } = new S3LocationToKeys(s3).getBucketAndPrefix(key);
     expect(Bucket).toEqual("testbucket-temp");
     expect(Prefix).toEqual("v2/testing//multiple/separators///and_more");
   });
