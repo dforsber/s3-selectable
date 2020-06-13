@@ -88,23 +88,23 @@ describe("Parameter and return value checks", () => {
 
 describe("When fetching partitioning information", () => {
   it("correctly lists all S3 Keys", async () => {
-    let keys = await mapper.getAllKeys();
+    let keys = await mapper.getKeysByPartitions([]);
     expect(keys.length).toEqual(testTableKeys.length);
     expect(keys.sort()).toEqual(testTableKeys.sort());
-    keys = await mapper.getAllKeys();
+    keys = await mapper.getKeysByPartitions([]);
     expect(keys.length).toEqual(testTableKeys.length);
     expect(keys.sort()).toEqual(testTableKeys.sort());
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(1);
-    expect(s3ListObjectsV2Called).toEqual(10); // 10 partitions
+    expect(s3ListObjectsV2Called).toEqual(10); // 10 partitions, 1 call
   });
 
   it("table location keys when no partitions", async () => {
     mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "noPartitionKeys" });
     const t = await mapper.getTable();
     expect(t.PartitionKeys).toEqual(undefined);
-    const keys = await mapper.getAllKeys();
-    expect(keys.length).toEqual(10);
+    const keys = await mapper.getKeysByPartitions([]);
+    expect(keys.length).toEqual(0);
   });
 
   it("correctly identifies table information", async () => {
@@ -130,36 +130,6 @@ describe("When fetching partitioning information", () => {
     `);
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(0);
-    expect(s3ListObjectsV2Called).toEqual(0);
-  });
-
-  it("partition locations", async () => {
-    expect(await mapper.getPartitionLocations()).toEqual([
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=500",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=301",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=500",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=302",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=404",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=404",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=200",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=301",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=200",
-    ]);
-    expect(await mapper.getPartitionLocations()).toEqual([
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=500",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=301",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=500",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=302",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=404",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=404",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=200",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=301",
-      "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=200",
-    ]);
-    expect(glueGetTableCalled).toEqual(0);
-    expect(glueGetPartitionsCalled).toEqual(1);
     expect(s3ListObjectsV2Called).toEqual(0);
   });
 

@@ -1,13 +1,12 @@
 import AWS from "aws-sdk";
 import mergeStream from "merge-stream";
-import { filterPartitions } from "../utils/sqlite.filter";
 import { getSQLWhereString, getTableAndDb } from "../utils/sql-query.helper";
 import { GlueTableToS3Key } from "../mappers/glueTableToS3Keys.mapper";
+import { PartitionPreFilter } from "../utils/partition-filterer";
 import { StreamingEventStream } from "aws-sdk/lib/event-stream/event-stream";
 import {
   ContinuationEvent,
   EndEvent,
-  Expression,
   InputSerialization,
   OutputSerialization,
   ProgressEvent,
@@ -41,6 +40,7 @@ export class S3Selectable {
   private partitionValues!: string[];
   private partitionColumns!: string[];
   private s3bucket!: string;
+  private partitionsFilter!: PartitionPreFilter;
   private mapper = new GlueTableToS3Key({
     s3: this.s3,
     glue: this.glue,
@@ -53,8 +53,9 @@ export class S3Selectable {
   public async selectObjectContent(
     params: PartialBy<SelectObjectContentRequest, "Bucket" | "Key">,
   ): Promise<SelectStream> {
-    await this.getData();
-    const filteredPartitionValues = await this.filterPartitionsByQuery(params.Expression);
+    await this.cacheTableMetadata();
+    const whereSql = getSQLWhereString(params.Expression, this.partitionColumns);
+    const filteredPartitionValues = await this.partitionsFilter.filterPartitions(whereSql);
     const s3Keys = await this.mapper.getKeysByPartitions(filteredPartitionValues);
     const selectStreams = await Promise.all(s3Keys.map((Key: string) => this.getSelectStream({ ...params, Key })));
     return mergeStream(...selectStreams.filter(stream => !!stream));
@@ -70,27 +71,11 @@ export class S3Selectable {
    * Increased complexity is due to fetching both getTableInfo and
    * getPartitionValues concurrently (Promise.all) while doing caching
    */
-  private async getData(): Promise<void> {
-    const partColsFetched = this.partitionColumns && this.s3bucket;
-    const partColsProm = partColsFetched
-      ? Promise.resolve({ Bucket: this.s3bucket, PartitionColumns: this.partitionColumns })
-      : this.mapper.getTableInfo();
-    const partVolsProm = this.partitionValues
-      ? Promise.resolve(this.partitionValues)
-      : this.mapper.getPartitionValues();
-    let partCols;
-    [partCols, this.partitionValues] = await Promise.all([partColsProm, partVolsProm]);
+  private async cacheTableMetadata(): Promise<void> {
+    const partCols = await this.mapper.getTableInfo();
     [this.s3bucket, this.partitionColumns] = [partCols.Bucket, partCols.PartitionColumns];
-  }
-
-  public async filterPartitionsByQuery(expression: Expression): Promise<string[]> {
-    await this.getData();
-    if (!this.partitionValues) return Promise.resolve(this.partitionValues);
-    return filterPartitions(
-      this.partitionValues,
-      this.partitionColumns,
-      getSQLWhereString(expression, this.partitionColumns),
-    );
+    this.partitionValues = await this.mapper.getPartitionValues();
+    this.partitionsFilter = new PartitionPreFilter(this.partitionValues, this.partitionColumns);
   }
 }
 

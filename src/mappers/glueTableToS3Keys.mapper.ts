@@ -1,7 +1,7 @@
 import { errors } from "../common/errors.enum";
 import { GetPartitionsRequest, Partition, Table, Token } from "aws-sdk/clients/glue";
-import { IS3Selectable, PartialBy } from "../services/s3-selectable";
-import { S3LocationToKeys } from "./s3locationToS3Keys.mapper";
+import { IS3Selectable, PartialBy } from "../s3-selectable/s3-selectable";
+import { S3KeysCache } from "../utils/s3KeysCache";
 
 export interface ITableInfo {
   Bucket: string;
@@ -19,8 +19,7 @@ export class GlueTableToS3Key {
   private tableBucket!: string;
   private partitions!: Partition[];
   private partitionColumns!: string[];
-  private partitionLocations!: string[];
-  private s3Keys: string[] | undefined = undefined;
+  private s3KeysFetcher = new S3KeysCache(this.params.s3);
 
   constructor(private params: PartialBy<IS3Selectable, "s3" | "glue">) {}
 
@@ -33,7 +32,7 @@ export class GlueTableToS3Key {
     const tableLocation = table.StorageDescriptor?.Location;
     if (!tableLocation) throw new Error(`No S3 Bucket found for table ${Name}`);
     this.tableLocation = tableLocation;
-    this.tableBucket = new S3LocationToKeys(this.tableLocation, this.params.s3).getBucketAndPrefix().Bucket;
+    this.tableBucket = this.s3KeysFetcher.getBucketAndPrefix(this.tableLocation).Bucket;
     this.partitionColumns = table.PartitionKeys?.map(col => col.Name) ?? [];
     this.table = table;
     return this.table;
@@ -46,16 +45,6 @@ export class GlueTableToS3Key {
     return { Bucket: this.tableBucket, PartitionColumns: this.partitionColumns };
   }
 
-  public async getAllKeys(): Promise<string[]> {
-    if (this.s3Keys) return this.s3Keys;
-    await this.getTable();
-    await this.getPartitionLocations();
-    const locations = this.partitionColumns.length ? this.partitionLocations : [this.tableLocation];
-    const allKeys = await Promise.all(locations.map(loc => new S3LocationToKeys(loc, this.params.s3).getKeys()));
-    this.s3Keys = allKeys.reduce((acc, curr) => [...acc, ...curr], []);
-    return this.s3Keys;
-  }
-
   public async getKeysByPartitions(values: string[]): Promise<string[]> {
     await this.getTable();
     await this.getPartitions();
@@ -64,11 +53,11 @@ export class GlueTableToS3Key {
         ...p,
         Value: this.partitionColumns.reduce((a, c, i) => `${a}/${c}=${p.Values ? p.Values[i] : "ValueUndefined"}`, ""),
       }))
-      .filter(p => values.some(v => v.includes(p.Value)))
-      .map(p => p.StorageDescriptor?.Location);
-    const allKeys = await Promise.all(partitionLocs.map(loc => new S3LocationToKeys(loc, this.params.s3).getKeys()));
-    this.s3Keys = allKeys.reduce((acc, curr) => [...acc, ...curr], []);
-    return this.s3Keys;
+      .filter(p => values.length <= 0 || values.some(v => v.includes(p.Value)))
+      .map(p => p.StorageDescriptor?.Location)
+      .filter(l => !!l);
+    const keys = await Promise.all(partitionLocs.map(loc => this.s3KeysFetcher.getKeys(<string>loc)));
+    return keys.reduce((acc, curr) => [...acc, ...curr], []);
   }
 
   public async getPartitions(): Promise<Partition[]> {
@@ -93,12 +82,5 @@ export class GlueTableToS3Key {
     return this.partitions
       .map(p => p.Values)
       .map(v => this.partitionColumns.reduce((a, c, i) => `${a}/${c}=${v ? v[i] : "ValueUndefined"}`, ""));
-  }
-
-  public async getPartitionLocations(): Promise<string[]> {
-    if (this.partitionLocations) return this.partitionLocations;
-    await this.getPartitions();
-    this.partitionLocations = <string[]>this.partitions.map(p => p.StorageDescriptor?.Location).filter(p => !!p);
-    return this.partitionLocations;
   }
 }
