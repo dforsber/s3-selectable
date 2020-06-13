@@ -17,7 +17,7 @@ import {
 const AWS = require("aws-sdk");
 
 class MockedSelectStream extends Readable {
-  public Payload: Readable = this;
+  public Payload: Readable | undefined = this;
 
   private rows = [
     { id: 1, value: "test1" },
@@ -38,6 +38,13 @@ class MockedSelectStream extends Readable {
     }
     const buf = Buffer.from(JSON.stringify(this.rows[i]), "ascii");
     this.push(buf);
+  }
+}
+
+class MockedSelectStreamNoPayload extends MockedSelectStream {
+  public Payload = undefined;
+  constructor(opt?: ReadableOptions) {
+    super(opt);
   }
 }
 
@@ -151,6 +158,40 @@ describe("Test selectObjectContent", () => {
         "{\\"id\\":2,\\"value\\":\\"test2\\"}",
       ]
     `);
+  });
+
+  it("throws when stream does not contain Payload", async () => {
+    AWSMock.restore("S3", "selectObjectContent");
+    AWSMock.mock("S3", "selectObjectContent", (_params: SelectObjectContentRequest, cb: Function) => {
+      selectObjectContent++;
+      cb(null, new MockedSelectStreamNoPayload());
+    });
+    const s3 = new AWS.S3({ region: "eu-west-1" });
+    const glue = new AWS.Glue({ region: "eu-west-1" });
+    const [databaseName, tableName] = ["default", "partitioned_and_bucketed_elb_logs_parquet"];
+    const params = { glue, s3, tableName, databaseName };
+    const sql = "SELECT * FROM s3Object WHERE elb_response_code='302' AND ssl_protocol='-'";
+    const inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" };
+    const outSer: OutputSerialization = { JSON: {} };
+    const selectable = new S3Selectable(params);
+    await expect(
+      async () =>
+        await selectable.selectObjectContent({
+          Expression: sql,
+          ExpressionType: "SQL",
+          InputSerialization: inpSer,
+          OutputSerialization: outSer,
+        }),
+    ).rejects.toThrowError();
+    expect(glueGetTableCalled).toEqual(1);
+    expect(glueGetPartitionsCalled).toEqual(1); // 1 table
+    expect(s3ListObjectsV2Called).toEqual(1); // 1 partition
+    expect(selectObjectContent).toEqual(10); // 10 objects
+    AWSMock.restore("S3", "selectObjectContent");
+    AWSMock.mock("S3", "selectObjectContent", (_params: SelectObjectContentRequest, cb: Function) => {
+      selectObjectContent++;
+      cb(null, new MockedSelectStream());
+    });
   });
 });
 

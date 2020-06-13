@@ -1,7 +1,7 @@
 import { errors } from "../common/errors.enum";
 import { GetPartitionsRequest, Partition, Table, Token } from "aws-sdk/clients/glue";
-import { IS3Selectable, PartialBy } from "../services/s3-selectable";
-import { S3LocationToKeys } from "./s3locationToS3Keys.mapper";
+import { IS3Selectable, PartialBy } from "../s3-selectable/s3-selectable";
+import { S3KeysCache } from "../utils/s3KeysCache";
 
 export interface ITableInfo {
   Bucket: string;
@@ -19,7 +19,7 @@ export class GlueTableToS3Key {
   private tableBucket!: string;
   private partitions!: Partition[];
   private partitionColumns!: string[];
-  private s3KeysFetcher = new S3LocationToKeys(this.params.s3);
+  private s3KeysFetcher = new S3KeysCache(this.params.s3);
 
   constructor(private params: PartialBy<IS3Selectable, "s3" | "glue">) {}
 
