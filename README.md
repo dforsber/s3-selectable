@@ -56,7 +56,11 @@ When the class `s3SelectOnTable` is instantiated it triggers AWS API calls for f
 
 ## Narrowed scope with partition filtering
 
-s3-selectable supports pre-filtering S3 Keys based on Glue Table partitions. The WHERE clause is extracted and matched with table partition columns with `node-sql-parser` and `sqlite3`. If WHERE clause contains any filters based partition columns those will be applied to filter parttions. S3 Keys are only listed for filtered partition list. This allows e.g. to stream events from a specific date range from a timeseries "database".
+s3-selectable supports pre-filtering S3 paths (keys) based on Glue Table partitions. The WHERE clause is extracted and matched with table partition columns with `node-sql-parser` and `sqlite3`. If WHERE clause contains any filters based partition columns those will be applied to filter parttions.
+
+All the S3 location key listings are cached and reused. Thus, for partition pre-filtering applied, only partitions participating into the query will be listed. However, if there were any queries before with the same instance without partition pre-filtering, all the S3 keys for all partitions are already in cache and re-used in queries. This means that if there are more S3 keys created on these locations, they are not taken into use. To do that, instantiate the class again. The cache memory is not limited at the moment.
+
+In general, this feature allows e.g. to stream events from a specific date range from a timeseries data, or e.g. select specific location from data that contains data worldwide (e.g. partitioned by country or city).
 
 NOTE: _Before filtering, all non-partition based clauses are set to TRUE. The SQLite database is created in-memory and partitions are added into table where the partition values are put into separate columns. This allows filtering partitions based on their values (e.g. `year`, `month`, and `day`)._
 

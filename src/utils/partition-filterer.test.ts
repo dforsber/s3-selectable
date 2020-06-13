@@ -1,4 +1,4 @@
-import { getPartitionKeyValue, PartitionPreFilter } from "./sqlite.filter";
+import { getPartitionKeyValue, PartitionPreFilter } from "./partition-filterer";
 
 const partCols = ["year", "month"];
 

@@ -2,7 +2,7 @@ import AWS from "aws-sdk";
 import mergeStream from "merge-stream";
 import { getSQLWhereString, getTableAndDb } from "../utils/sql-query.helper";
 import { GlueTableToS3Key } from "../mappers/glueTableToS3Keys.mapper";
-import { PartitionPreFilter } from "../utils/sqlite.filter";
+import { PartitionPreFilter } from "../utils/partition-filterer";
 import { StreamingEventStream } from "aws-sdk/lib/event-stream/event-stream";
 import {
   ContinuationEvent,
