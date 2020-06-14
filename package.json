@@ -20,8 +20,8 @@
     "Glue Table"
   ],
   "scripts": {
-    "prebuild": "rimraf dist && yarn install --frozen-lockfile",
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig-cjs.json",
+    "prebuild": "yarn install --frozen-lockfile",
+    "build": "rimraf dist/ && tsc -p tsconfig.json && tsc -p tsconfig-cjs.json",
     "build:watch": "npx onchange 'src/**/*.ts' -- yarn build",
     "lint": "eslint \"./src/**/*.ts\" --fix",
     "lint:watch": "npx onchange 'src/**/*.ts' -- yarn lint",
