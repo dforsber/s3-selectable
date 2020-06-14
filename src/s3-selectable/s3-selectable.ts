@@ -1,6 +1,6 @@
-import AWS from "aws-sdk";
 import mergeStream from "merge-stream";
 import { getSQLWhereString, getTableAndDb } from "../utils/sql-query.helper";
+import { Glue, S3 } from "aws-sdk";
 import { GlueTableToS3Key } from "../mappers/glueTableToS3Keys.mapper";
 import { PartitionPreFilter } from "../utils/partition-filterer";
 import { StreamingEventStream } from "aws-sdk/lib/event-stream/event-stream";
@@ -30,8 +30,8 @@ export type SelectStream = StreamingEventStream<IEventStream>;
 export interface IS3Selectable {
   tableName: string;
   databaseName: string;
-  glue: AWS.Glue;
-  s3: AWS.S3;
+  glue: Glue;
+  s3: S3;
 }
 
 export class S3Selectable {
@@ -85,14 +85,14 @@ export class S3Selectable {
  * are run over the same table and in cases where the class can be instantiated beforehand to fill
  * up the cache.
  */
-export async function s3selectable(
+export async function s3selectableNonClass(
   sql: string,
   inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" },
   outSer: OutputSerialization = { JSON: {} },
 ): Promise<string[]> {
   const [databaseName, tableName] = getTableAndDb(sql);
   const Expression = sql.replace(`${databaseName}.${tableName}`, "s3Object");
-  const selectable = new S3Selectable({ databaseName, tableName, s3: new AWS.S3(), glue: new AWS.Glue() });
+  const selectable = new S3Selectable({ databaseName, tableName, s3: new S3(), glue: new Glue() });
   const rowsStream = await selectable.selectObjectContent({
     Expression,
     ExpressionType: "SQL",

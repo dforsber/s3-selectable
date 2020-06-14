@@ -1,7 +1,7 @@
 import * as AWSMock from "aws-sdk-mock";
 import { GetPartitionsRequest, GetTableRequest } from "aws-sdk/clients/glue";
 import { Readable, ReadableOptions } from "stream";
-import { S3Selectable, s3selectable } from "./s3-selectable";
+import { S3Selectable, s3selectableNonClass } from "./s3-selectable";
 import { testTable, testTableKeys, testTablePartitions } from "../common/fixtures/glue-table";
 /* eslint-disable @typescript-eslint/ban-types */
 import {
@@ -199,7 +199,7 @@ describe("Non-class based s3selectable returns correct results", () => {
   it("test", async () => {
     const table = "default.partitioned_and_bucketed_elb_logs_parquet";
     const sql = `SELECT * FROM ${table} WHERE elb_response_code='302' AND ssl_protocol='-'`;
-    const rows = await s3selectable(sql);
+    const rows = await s3selectableNonClass(sql);
     expect(rows).toMatchInlineSnapshot(`
       Array [
         "{\\"id\\":1,\\"value\\":\\"test1\\"}",
