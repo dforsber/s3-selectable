@@ -1,9 +1,36 @@
 {
-  "extends": "./tsconfig.settings",
   "compilerOptions": {
-    "outDir": "./dist",
+    "outDir": "./dist/esm",
     "rootDir": "./src",
-    "baseUrl": "./src"
+    "baseUrl": "./src",
+    "incremental": false,
+    "target": "ES2016",
+    "module": "ES2020",
+    "declaration": true,
+    "declarationMap": true,
+    "composite": false,
+    "removeComments": true,
+    "importHelpers": false,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "inlineSourceMap": true,
+    "inlineSources": true,
+    "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "jest.config.js"]
+  "include": ["src/**/*.ts", "jest.config.js"],
+  "exclude": ["**/*.test.ts"]
 }
