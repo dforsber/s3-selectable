@@ -51,31 +51,44 @@ export class S3Selectable {
   constructor(private params: IS3Selectable) {}
 
   public async selectObjectContent(
-    params: PartialBy<SelectObjectContentRequest, "Bucket" | "Key">,
+    s3SelectParams: PartialBy<SelectObjectContentRequest, "Bucket" | "Key">,
+    onDataHandler?: (event: IEventStream) => void,
+    onEndHandler?: (event: IEventStream) => void,
   ): Promise<SelectStream> {
     await this.cacheTableMetadata();
-    const whereSql = getSQLWhereString(params.Expression, this.partitionColumns);
+    const whereSql = getSQLWhereString(s3SelectParams.Expression, this.partitionColumns);
     const filteredPartitionValues = await this.partitionsFilter.filterPartitions(whereSql);
     const s3Keys = await this.mapper.getKeysByPartitions(filteredPartitionValues);
-    const selectStreams = await Promise.all(s3Keys.map((Key: string) => this.getSelectStream({ ...params, Key })));
+    const selectStreams = await Promise.all(
+      s3Keys.map((Key: string) => this.getSelectStream({ ...s3SelectParams, Key }, onDataHandler, onEndHandler)),
+    );
     return mergeStream(...selectStreams.filter(stream => !!stream));
   }
 
-  private async getSelectStream(queryParams: PartialBy<SelectObjectContentRequest, "Bucket">): Promise<SelectStream> {
-    const stream = await this.s3.selectObjectContent({ ...queryParams, Bucket: this.s3bucket }).promise();
-    if (stream.Payload === undefined) throw new Error(`No select stream for ${queryParams.Key}`);
-    return <SelectStream>stream.Payload;
+  private async getSelectStream(
+    queryParams: PartialBy<SelectObjectContentRequest, "Bucket">,
+    onDataHandler?: (event: IEventStream) => void,
+    onEndHandler?: (event: IEventStream) => void,
+  ): Promise<SelectStream> {
+    const selStream = await this.s3.selectObjectContent({ ...queryParams, Bucket: this.s3bucket }).promise();
+    if (selStream.Payload === undefined) throw new Error(`No select stream for ${queryParams.Key}`);
+    const stream = <SelectStream>selStream.Payload;
+    if (onDataHandler) stream.on("data", onDataHandler);
+    if (onEndHandler) stream.on("end", onEndHandler);
+    return stream;
   }
 
   /*
    * Increased complexity is due to fetching both getTableInfo and
    * getPartitionValues concurrently (Promise.all) while doing caching
    */
-  private async cacheTableMetadata(): Promise<void> {
+  public async cacheTableMetadata(): Promise<void> {
     const partCols = await this.mapper.getTableInfo();
     [this.s3bucket, this.partitionColumns] = [partCols.Bucket, partCols.PartitionColumns];
     this.partitionValues = await this.mapper.getPartitionValues();
-    this.partitionsFilter = new PartitionPreFilter(this.partitionValues, this.partitionColumns);
+    this.partitionsFilter = this.partitionsFilter
+      ? this.partitionsFilter
+      : new PartitionPreFilter(this.partitionValues, this.partitionColumns);
   }
 }
 
