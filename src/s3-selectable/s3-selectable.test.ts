@@ -92,6 +92,7 @@ describe("Test selectObjectContent", () => {
     const readable = new MockedSelectStream();
     const rows = await new Promise(r => {
       const rows: string[] = [];
+      // NOTE: This onDataHandler is not correct with real S3 Select Stream, the mocked one is simplification
       readable.on("data", chunk => rows.push(Buffer.from(chunk).toString()));
       readable.on("end", () => r(rows));
     });
@@ -133,6 +134,51 @@ describe("Test selectObjectContent", () => {
       const rows: string[] = [];
       rowsStream.on("data", chunk => rows.push(Buffer.from(chunk).toString()));
       rowsStream.on("end", () => r(rows));
+    });
+    expect(rows).toMatchInlineSnapshot(`
+      Array [
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+      ]
+    `);
+  });
+
+  it("selectObjectContent provides correct results with onDataHandler and onEndHandler", async () => {
+    const sql = "SELECT * FROM s3Object WHERE elb_response_code='302' AND ssl_protocol='-'";
+    const inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" };
+    const outSer: OutputSerialization = { JSON: {} };
+    const selectable = new S3Selectable(params);
+    const rows = await new Promise(r => {
+      const rows: string[] = [];
+      selectable.selectObjectContent(
+        {
+          Expression: sql,
+          ExpressionType: "SQL",
+          InputSerialization: inpSer,
+          OutputSerialization: outSer,
+        },
+        // NOTE: This onDataHandler is not correct with real S3 Select Stream, the mocked one is simplification
+        chunk => rows.push(Buffer.from(chunk).toString()),
+        () => r(rows),
+      );
     });
     expect(rows).toMatchInlineSnapshot(`
       Array [

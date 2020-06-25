@@ -24,19 +24,21 @@ async function main() {
     databaseName: "sampledb",
   });
 
-  const selectStream = await glueTable.selectObjectContent({
-    // Bucket: "BucketIsOptionalAndNotUsed",
-    // Key: "KeyIsOptionalAndNotUsed",
-    // ..otherwise the interface is the same.
-    ExpressionType: "SQL",
-    InputSerialization: { CSV: {} },
-    OutputSerialization: { JSON: {} },
-    Expression: "SELECT * FROM S3Object LIMIT 2",
-  });
-
-  selectStream.on("data", chunk => {
-    if (chunk.Records && chunk.Records.Payload) process.stdout.write(Buffer.from(chunk.Records.Payload).toString());
-  });
+  const selectStream = await glueTable.selectObjectContent(
+    {
+      // Bucket: "BucketIsOptionalAndNotUsed",
+      // Key: "KeyIsOptionalAndNotUsed",
+      // ..otherwise the interface is the same.
+      ExpressionType: "SQL",
+      InputSerialization: { CSV: {} },
+      OutputSerialization: { JSON: {} },
+      Expression: "SELECT * FROM S3Object LIMIT 2",
+    },
+    chunk => {
+      if (chunk.Records && chunk.Records.Payload) process.stdout.write(Buffer.from(chunk.Records.Payload).toString());
+    },
+    () => console.log("Stream end"),
+  );
 }
 
 main().catch(err => console.log(err));
