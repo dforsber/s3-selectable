@@ -13,6 +13,10 @@ import { AST, From, Parser, Select } from "node-sql-parser";
  * to be applied. Then run the full query on S3 Select over the S3 Objects.
  */
 
+const nodeSqlParserOpts = {
+  database: "Mysql",
+};
+
 export function getTableAndDbFromAST(ast: AST | AST[]): [string | null, string] {
   if (Array.isArray(ast)) throw new Error("Multiple queries not supported");
   if (ast.type !== "select") throw new Error("Only SELECT queries are supported");
@@ -26,7 +30,7 @@ export function getTableAndDbFromAST(ast: AST | AST[]): [string | null, string] 
 
 export function getTableAndDb(sql: string): [string, string] {
   const parser = new Parser();
-  const ast = parser.astify(sql);
+  const ast = parser.astify(sql, nodeSqlParserOpts);
   const [db, table] = getTableAndDbFromAST(ast);
   if (!db || !table) throw new Error("Both db and table needed");
   return [db, table];
@@ -34,7 +38,7 @@ export function getTableAndDb(sql: string): [string, string] {
 
 export function getSQLWhereAST(sql: string): AST {
   const parser = new Parser();
-  const ast = parser.astify(sql);
+  const ast = parser.astify(sql, nodeSqlParserOpts);
   getTableAndDbFromAST(ast);
   return (<Select>ast).where;
 }
@@ -57,19 +61,22 @@ export function makePartitionSpecificAST(ast: AST, partitionColumns: string[]): 
 export function getSQLWhereStringFromAST(where: AST): string {
   const parser = new Parser();
   return parser
-    .sqlify({
-      where,
-      with: null,
-      type: "select",
-      options: null,
-      distinct: null,
-      columns: "*",
-      from: [{ db: null, table: "s3Object", as: null }],
-      groupby: null,
-      having: null,
-      orderby: null,
-      limit: null,
-    })
+    .sqlify(
+      {
+        where,
+        with: null,
+        type: "select",
+        options: null,
+        distinct: null,
+        columns: "*",
+        from: [{ db: null, table: "s3Object", as: null }],
+        groupby: null,
+        having: null,
+        orderby: null,
+        limit: null,
+      },
+      nodeSqlParserOpts,
+    )
     .substring(25);
 }
 
