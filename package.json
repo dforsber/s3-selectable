@@ -1,6 +1,6 @@
 {
   "name": "@dforsber/s3-selectable",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "S3 Select over Glue Table",
   "main": "dist/cjs/index.js",
   "types": "dist/cjs/index.d.ts",
