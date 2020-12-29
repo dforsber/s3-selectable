@@ -35,7 +35,7 @@ async function main() {
       Expression: "SELECT * FROM S3Object LIMIT 2",
     },
     chunk => {
-      if (chunk.Records && chunk.Records.Payload) process.stdout.write(Buffer.from(chunk.Records.Payload).toString());
+      if (chunk.Records?.Payload) process.stdout.write(Buffer.from(chunk.Records.Payload).toString());
     },
     () => console.log("Stream end"),
   );
