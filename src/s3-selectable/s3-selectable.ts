@@ -113,9 +113,11 @@ export async function s3selectableNonClass(
     OutputSerialization: outSer,
   });
   const data: string[] = await new Promise(resolve => {
-    const d: string[] = [];
-    rowsStream.on("end", () => resolve(d));
-    rowsStream.on("data", chunk => d.push(Buffer.from(chunk).toString()));
+    const rows: string[] = [];
+    rowsStream.on("data", chunk => {
+      if (chunk.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
+    });
+    rowsStream.on("end", () => resolve(rows));
   });
   return data;
 }

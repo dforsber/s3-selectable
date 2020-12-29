@@ -26,7 +26,7 @@ class MockedSelectStream extends Readable {
   private index: number;
 
   constructor(opt?: ReadableOptions) {
-    super(opt);
+    super({ ...opt, objectMode: true });
     this.index = 0;
   }
 
@@ -36,7 +36,11 @@ class MockedSelectStream extends Readable {
       this.push(null);
       return;
     }
-    const buf = Buffer.from(JSON.stringify(this.rows[i]), "ascii");
+    const buf = {
+      Records: {
+        Payload: Buffer.from(JSON.stringify(this.rows[i]), "ascii"),
+      },
+    };
     this.push(buf);
   }
 }
@@ -90,11 +94,12 @@ beforeEach(() => {
 describe("Test selectObjectContent", () => {
   it("first verify mockedReadable", async () => {
     const readable = new MockedSelectStream();
-    const rows = await new Promise(r => {
+    const rows = await new Promise(resolve => {
       const rows: string[] = [];
-      // NOTE: This onDataHandler is not correct with real S3 Select Stream, the mocked one is simplification
-      readable.on("data", chunk => rows.push(Buffer.from(chunk).toString()));
-      readable.on("end", () => r(rows));
+      readable.on("data", chunk => {
+        if (chunk.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
+      });
+      readable.on("end", () => resolve(rows));
     });
     await new Promise(r => setTimeout(r, 1000));
     expect(rows).toMatchInlineSnapshot(`
@@ -132,7 +137,9 @@ describe("Test selectObjectContent", () => {
     expect(selectObjectContent).toEqual(20); // 2 * 10 objects
     const rows = await new Promise(r => {
       const rows: string[] = [];
-      rowsStream.on("data", chunk => rows.push(Buffer.from(chunk).toString()));
+      rowsStream.on("data", chunk => {
+        if (chunk?.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
+      });
       rowsStream.on("end", () => r(rows));
     });
     expect(rows).toMatchInlineSnapshot(`
@@ -175,8 +182,9 @@ describe("Test selectObjectContent", () => {
           InputSerialization: inpSer,
           OutputSerialization: outSer,
         },
-        // NOTE: This onDataHandler is not correct with real S3 Select Stream, the mocked one is simplification
-        chunk => rows.push(Buffer.from(chunk).toString()),
+        chunk => {
+          if (chunk.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
+        },
         () => r(rows),
       );
     });
