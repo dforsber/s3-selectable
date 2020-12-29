@@ -100,12 +100,14 @@ export class S3Selectable {
  */
 export async function s3selectableNonClass(
   sql: string,
+  s3: S3,
+  glue: Glue,
   inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" },
   outSer: OutputSerialization = { JSON: {} },
 ): Promise<string[]> {
   const [databaseName, tableName] = getTableAndDb(sql);
   const Expression = sql.replace(`${databaseName}.${tableName}`, "s3Object");
-  const selectable = new S3Selectable({ databaseName, tableName, s3: new S3(), glue: new Glue() });
+  const selectable = new S3Selectable({ databaseName, tableName, s3, glue });
   const rowsStream = await selectable.selectObjectContent({
     Expression,
     ExpressionType: "SQL",
