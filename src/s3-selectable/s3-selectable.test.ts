@@ -18,37 +18,42 @@ const AWS = require("aws-sdk");
 
 class MockedSelectStream extends Readable {
   public Payload: Readable | undefined = this;
-
   private rows = [
     { id: 1, value: "test1" },
     { id: 2, value: "test2" },
   ];
-  private index: number;
+  private index = 0;
 
   constructor(opt?: ReadableOptions) {
     super({ ...opt, objectMode: true });
-    this.index = 0;
   }
 
   public _read(_size: number): void {
-    const i = this.index++;
-    if (i >= this.rows.length) {
-      this.push(null);
-      return;
-    }
-    const buf = {
-      Records: {
-        Payload: Buffer.from(JSON.stringify(this.rows[i]), "ascii"),
-      },
-    };
-    this.push(buf);
+    this.index >= this.rows.length
+      ? this.push(null)
+      : this.push({ Records: { Payload: Buffer.from(JSON.stringify(this.rows[this.index++]), "ascii") } });
   }
 }
 
 class MockedSelectStreamNoPayload extends MockedSelectStream {
   public Payload = undefined;
+
   constructor(opt?: ReadableOptions) {
     super(opt);
+  }
+}
+
+class MockedSelectStreamNoData extends MockedSelectStream {
+  public Payload: Readable | undefined = this;
+  private sent = false;
+
+  constructor(opt?: ReadableOptions) {
+    super(opt);
+  }
+
+  public _read(_size: number): void {
+    this.sent ? this.push(null) : this.push({});
+    this.sent = true;
   }
 }
 
@@ -250,10 +255,10 @@ describe("Test selectObjectContent", () => {
 });
 
 describe("Non-class based s3selectable returns correct results", () => {
-  it("test", async () => {
+  it("valid output", async () => {
     const table = "default.partitioned_and_bucketed_elb_logs_parquet";
     const sql = `SELECT * FROM ${table} WHERE elb_response_code='302' AND ssl_protocol='-'`;
-    const rows = await s3selectableNonClass(sql);
+    const rows = await s3selectableNonClass(sql, new AWS.S3(), new AWS.Glue());
     expect(rows).toMatchInlineSnapshot(`
       Array [
         "{\\"id\\":1,\\"value\\":\\"test1\\"}",
@@ -278,5 +283,20 @@ describe("Non-class based s3selectable returns correct results", () => {
         "{\\"id\\":2,\\"value\\":\\"test2\\"}",
       ]
     `);
+  });
+
+  it("no payload", async () => {
+    const table = "default.partitioned_and_bucketed_elb_logs_parquet";
+    const sql = `SELECT * FROM ${table} WHERE elb_response_code='302' AND ssl_protocol='-'`;
+    AWSMock.remock("S3", "selectObjectContent", (_params: SelectObjectContentRequest, cb: Function) => {
+      selectObjectContent++;
+      cb(null, new MockedSelectStreamNoData());
+    });
+    const rows = await s3selectableNonClass(
+      sql,
+      new AWS.S3({ region: "eu-west-1" }),
+      new AWS.Glue({ region: "eu-west-1" }),
+    );
+    expect(rows).toEqual([]);
   });
 });
