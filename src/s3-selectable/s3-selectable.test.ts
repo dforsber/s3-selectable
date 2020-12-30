@@ -1,4 +1,4 @@
-import { GetPartitionsRequest, GetTableRequest } from "aws-sdk/clients/glue";
+import { GetPartitionsRequest, GetTableRequest } from "@aws-sdk/client-glue";
 import {
   InputSerialization,
   ListObjectsV2CommandInput,
