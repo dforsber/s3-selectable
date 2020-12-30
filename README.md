@@ -11,15 +11,16 @@ yarn add @dforsber/s3-selectable
 ```
 
 ```javascript
-const AWS = require("aws-sdk");
+const { S3 } = require("@aws-sdk/client-s3");
+const { Glue } = require("@aws-sdk/client-glue");
 const { S3SelectOnTable } = require("@dforsber/s3-selectable");
 
 async function main() {
   // NOTE: Instantiation of the class will start querying AWS Glue and S3 to
   //       fetch all S3 Object Keys that corresponds with the Glue Table data.
   const glueTable = new S3SelectOnTable({
-    s3: new AWS.S3({ region: "eu-west-1" }),
-    glue: new AWS.Glue({ region: "eu-west-1" }),
+    s3: new S3({ region: "eu-west-1" }),
+    glue: new Glue({ region: "eu-west-1" }),
     tableName: "elb_logs",
     databaseName: "sampledb",
   });

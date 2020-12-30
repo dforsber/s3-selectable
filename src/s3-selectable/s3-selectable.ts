@@ -1,31 +1,19 @@
-import mergeStream from "merge-stream";
-import { getSQLWhereString, getTableAndDb } from "../utils/sql-query.helper";
-import { Glue, S3 } from "aws-sdk";
-import { GlueTableToS3Key } from "../mappers/glueTableToS3Keys.mapper";
-import { PartitionPreFilter } from "../utils/partition-filterer";
-import { StreamingEventStream } from "aws-sdk/lib/event-stream/event-stream";
 import {
-  ContinuationEvent,
-  EndEvent,
   InputSerialization,
   OutputSerialization,
-  ProgressEvent,
-  RecordsEvent,
-  SelectObjectContentRequest,
-  StatsEvent,
-} from "aws-sdk/clients/s3";
+  S3,
+  SelectObjectContentCommandInput,
+  SelectObjectContentEventStream,
+} from "@aws-sdk/client-s3";
+import { getSQLWhereString, getTableAndDb } from "../utils/sql-query.helper";
+import stream, { Readable } from "stream";
+
+import { Glue } from "@aws-sdk/client-glue";
+import { GlueTableToS3Key } from "../mappers/glueTableToS3Keys.mapper";
+import { PartitionPreFilter } from "../utils/partition-filterer";
+import mergeStream from "merge-stream";
 
 export type PartialBy<TType, TKey extends keyof TType> = Omit<TType, TKey> & Partial<Pick<TType, TKey>>;
-
-export interface IEventStream {
-  Records?: RecordsEvent;
-  Stats?: StatsEvent;
-  Progress?: ProgressEvent;
-  Cont?: ContinuationEvent;
-  End?: EndEvent;
-}
-
-export type SelectStream = StreamingEventStream<IEventStream>;
 
 export interface IS3Selectable {
   tableName: string;
@@ -51,31 +39,32 @@ export class S3Selectable {
   constructor(private params: IS3Selectable) {}
 
   public async selectObjectContent(
-    s3SelectParams: PartialBy<SelectObjectContentRequest, "Bucket" | "Key">,
-    onDataHandler?: (event: IEventStream) => void,
-    onEndHandler?: (event: IEventStream) => void,
-  ): Promise<SelectStream> {
+    s3SelectParams: PartialBy<SelectObjectContentCommandInput, "Bucket" | "Key">,
+    onDataHandler?: (event: SelectObjectContentEventStream.RecordsMember) => void,
+    onEndHandler?: (event: SelectObjectContentEventStream.RecordsMember) => void,
+  ): Promise<stream> {
     await this.cacheTableMetadata();
+    if (!s3SelectParams.Expression) throw new Error("S3 Select params Expression is required");
     const whereSql = getSQLWhereString(s3SelectParams.Expression, this.partitionColumns);
     const filteredPartitionValues = await this.partitionsFilter.filterPartitions(whereSql);
     const s3Keys = await this.mapper.getKeysByPartitions(filteredPartitionValues);
     const selectStreams = await Promise.all(
       s3Keys.map((Key: string) => this.getSelectStream({ ...s3SelectParams, Key }, onDataHandler, onEndHandler)),
     );
-    return mergeStream(...selectStreams.filter(stream => !!stream));
+    return mergeStream(selectStreams);
   }
 
   private async getSelectStream(
-    queryParams: PartialBy<SelectObjectContentRequest, "Bucket">,
-    onDataHandler?: (event: IEventStream) => void,
-    onEndHandler?: (event: IEventStream) => void,
-  ): Promise<SelectStream> {
-    const selStream = await this.s3.selectObjectContent({ ...queryParams, Bucket: this.s3bucket }).promise();
+    queryParams: PartialBy<SelectObjectContentCommandInput, "Bucket">,
+    onDataHandler?: (event: SelectObjectContentEventStream.RecordsMember) => void,
+    onEndHandler?: (event: SelectObjectContentEventStream.RecordsMember) => void,
+  ): Promise<Readable> {
+    const selStream = await this.s3.selectObjectContent({ ...queryParams, Bucket: this.s3bucket });
     if (selStream.Payload === undefined) throw new Error(`No select stream for ${queryParams.Key}`);
-    const stream = <SelectStream>selStream.Payload;
-    if (onDataHandler) stream.on("data", onDataHandler);
-    if (onEndHandler) stream.on("end", onEndHandler);
-    return stream;
+    const data = stream.Readable.from(selStream.Payload);
+    if (onDataHandler) data.on("data", onDataHandler);
+    if (onEndHandler) data.on("end", onEndHandler);
+    return data;
   }
 
   /*

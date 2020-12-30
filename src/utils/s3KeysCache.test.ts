@@ -1,42 +1,48 @@
-import * as AWSMock from "aws-sdk-mock";
-import { errors } from "../common/errors.enum";
-import { ListObjectsV2Request } from "aws-sdk/clients/s3";
-import { S3KeysCache } from "./s3KeysCache";
+import { ListObjectsV2CommandInput, S3 } from "@aws-sdk/client-s3";
 import { testTableKeys, testTableKeysNoPartitions } from "../common/fixtures/glue-table";
-/* eslint-disable @typescript-eslint/ban-types */
-/* eslint-disable max-len */
-/* eslint-disable @typescript-eslint/no-var-requires */
-/* eslint-disable @typescript-eslint/no-require-imports */
-const AWS = require("aws-sdk");
+
+import { S3KeysCache } from "./s3KeysCache";
+import { errors } from "../common/errors.enum";
 
 let s3ListObjectsV2Called = 0;
-AWSMock.setSDKInstance(AWS);
-AWSMock.mock("S3", "listObjectsV2", (params: ListObjectsV2Request, cb: Function) => {
-  s3ListObjectsV2Called++;
-  const pref = params.Prefix ?? "";
-  if (params.Bucket === "dummy-test-bucket2") {
-    return cb(null, { NextContinuationToken: undefined, Contents: testTableKeysNoPartitions.map(k => ({ Key: k })) });
-  }
-  const keys = testTableKeys.filter(k => k.includes(pref)).map(k => ({ Key: k }));
-  const first = keys.slice(0, keys.length / 2);
-  const second = keys.slice(keys.length / 2);
-  if (params.ContinuationToken === "token") {
-    return cb(null, {
-      NextContinuationToken: undefined,
-      Contents: second,
-    });
-  }
-  return cb(null, {
-    NextContinuationToken: second.length ? "token" : undefined,
-    Contents: first,
-  });
-});
-beforeEach(() => {
-  s3ListObjectsV2Called = 0;
-});
-const s3 = new AWS.S3({ region: "eu-west-1" });
+
+jest.mock("@aws-sdk/client-s3", () => ({
+  S3: function S3() {
+    return {
+      listObjectsV2: jest.fn((params: ListObjectsV2CommandInput) => {
+        s3ListObjectsV2Called++;
+        const pref = params.Prefix ?? "";
+        if (params.Bucket === "dummy-test-bucket2") {
+          return Promise.resolve({
+            NextContinuationToken: undefined,
+            Contents: testTableKeysNoPartitions.map(k => ({ Key: k })),
+          });
+        }
+        const keys = testTableKeys.filter(k => k.includes(pref)).map(k => ({ Key: k }));
+        const first = keys.slice(0, keys.length / 2);
+        const second = keys.slice(keys.length / 2);
+        if (params.ContinuationToken === "token") {
+          return Promise.resolve({
+            NextContinuationToken: undefined,
+            Contents: second,
+          });
+        }
+        return Promise.resolve({
+          NextContinuationToken: second.length ? "token" : undefined,
+          Contents: first,
+        });
+      }),
+    };
+  },
+}));
+
+const s3 = new S3({ region: "eu-west-1" });
 
 describe("Parameter and return value checks", () => {
+  beforeEach(() => {
+    s3ListObjectsV2Called = 0;
+  });
+
   it("throws when S3 is not provided", async () => {
     const key = "s3://testbucket-temp/v2/testing/multiple/separators";
     await expect(async () => await new S3KeysCache().getKeys(key)).rejects.toThrowError(errors.noS3);

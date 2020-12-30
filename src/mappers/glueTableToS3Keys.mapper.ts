@@ -1,5 +1,5 @@
 import { errors } from "../common/errors.enum";
-import { GetPartitionsRequest, Partition, Table, Token } from "aws-sdk/clients/glue";
+import { GetPartitionsRequest, Partition, Table } from "@aws-sdk/client-glue";
 import { IS3Selectable, PartialBy } from "../s3-selectable/s3-selectable";
 import { S3KeysCache } from "../utils/s3KeysCache";
 
@@ -27,13 +27,13 @@ export class GlueTableToS3Key {
     if (this.table) return this.table;
     if (!this.params.glue) throw new Error(errors.noGlue);
     const [DatabaseName, Name] = [this.params.databaseName, this.params.tableName];
-    const table = (await this.params.glue.getTable({ DatabaseName, Name }).promise()).Table;
+    const table = (await this.params.glue.getTable({ DatabaseName, Name })).Table;
     if (!table) throw new Error(`Table not found: ${Name}`);
     const tableLocation = table.StorageDescriptor?.Location;
     if (!tableLocation) throw new Error(`No S3 Bucket found for table ${Name}`);
     this.tableLocation = tableLocation;
     this.tableBucket = this.s3KeysFetcher.getBucketAndPrefix(this.tableLocation).Bucket;
-    this.partitionColumns = table.PartitionKeys?.map(col => col.Name) ?? [];
+    this.partitionColumns = table.PartitionKeys?.map(col => col.Name || "").filter(e => e) ?? [];
     this.table = table;
     return this.table;
   }
@@ -65,10 +65,10 @@ export class GlueTableToS3Key {
     if (!this.params.glue) throw new Error(errors.noGlue);
     const params = { DatabaseName: this.params.databaseName, TableName: this.params.tableName };
     this.partitions = [];
-    let token: Token | undefined;
+    let token: string | undefined;
     do {
       const p: GetPartitionsRequest = token ? { ...params, NextToken: token } : params;
-      const { Partitions, NextToken } = await this.params.glue.getPartitions(p).promise();
+      const { Partitions, NextToken } = await this.params.glue.getPartitions(p);
       if (!Partitions) return [];
       this.partitions.push(...Partitions);
       token = NextToken;

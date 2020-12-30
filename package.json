@@ -1,6 +1,6 @@
 {
   "name": "@dforsber/s3-selectable",
-  "version": "0.1.7",
+  "version": "1.0.0",
   "description": "S3 Select over Glue Table",
   "main": "dist/cjs/index.js",
   "types": "dist/cjs/index.d.ts",
@@ -39,19 +39,20 @@
     }
   },
   "dependencies": {
+    "@aws-sdk/client-glue": "^3.1.0",
     "@aws-sdk/client-s3": "^3.1.0",
     "merge-stream": "^2.0.0",
     "node-sql-parser": "^1.11.0",
     "sqlite3": "^5.0.0"
   },
   "devDependencies": {
+    "@aws-sdk/types": "3.1.0",
     "@types/jest": "^26.0.15",
     "@types/merge-stream": "^1.1.2",
     "@types/node": "^14.14.6",
     "@types/sqlite3": "^3.1.6",
     "@typescript-eslint/eslint-plugin": "^4.6.1",
     "@typescript-eslint/parser": "^4.6.1",
-    "aws-sdk-mock": "^5.1.0",
     "eslint": "^7.2.0",
     "eslint-config-prettier": "^6.11.0",
     "eslint-plugin-jest": "^24.1.0",
