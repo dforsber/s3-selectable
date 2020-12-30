@@ -1,7 +1,9 @@
-import { Glue, S3 } from "aws-sdk";
-import { IEventStream, IS3Selectable, S3Selectable } from "@dforsber/s3-selectable";
+import { IS3Selectable, S3Selectable } from "@dforsber/s3-selectable";
+import { S3, SelectObjectContentEventStream } from "@aws-sdk/client-s3";
 
-function writeDataOut(chunk: IEventStream): void {
+import { Glue } from "@aws-sdk/client-glue";
+
+function writeDataOut(chunk: SelectObjectContentEventStream): void {
   if (chunk.Records?.Payload) process.stdout.write(Buffer.from(chunk.Records?.Payload).toString());
 }
 

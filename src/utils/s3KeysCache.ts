@@ -1,19 +1,20 @@
 import { errors } from "../common/errors.enum";
-import { ListObjectsV2Request, NextToken, ObjectKey } from "aws-sdk/clients/s3";
+import { ListObjectsV2Request } from "@aws-sdk/client-s3";
+import { S3 } from "@aws-sdk/client-s3";
 
 export class S3KeysCache {
   private cachedKeys: Map<string, string[]> = new Map();
-  constructor(private s3: AWS.S3 | undefined = undefined) {}
+  constructor(private s3: S3 | undefined = undefined) {}
 
   public async getKeys(location: string): Promise<string[]> {
     if (!this.s3) throw new Error(errors.noS3);
     const params = this.getBucketAndPrefix(location);
     if (this.cachedKeys.has(location)) return <string[]>this.cachedKeys.get(location);
-    const keys: Array<ObjectKey | undefined> = [];
-    let token: NextToken | undefined = undefined;
+    const keys: Array<string | undefined> = [];
+    let token: string | undefined = undefined;
     do {
       const p: ListObjectsV2Request = token ? { ...params, ContinuationToken: token } : params;
-      const { Contents, NextContinuationToken } = await this.s3.listObjectsV2(p).promise();
+      const { Contents, NextContinuationToken } = await this.s3.listObjectsV2(p);
       if (!Contents) throw new Error(`Invalid Contents for location: s3://${params.Bucket}/${params.Prefix}`);
       keys.push(...Contents.map(k => k.Key));
       token = NextContinuationToken;

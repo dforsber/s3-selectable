@@ -1,53 +1,69 @@
-import * as AWSMock from "aws-sdk-mock";
-import { GetPartitionsRequest, GetTableRequest } from "aws-sdk/clients/glue";
-import { GlueTableToS3Key } from "./glueTableToS3Keys.mapper";
-import { ListObjectsV2Request } from "aws-sdk/clients/s3";
+import { GetPartitionsRequest, GetTableRequest, Glue } from "@aws-sdk/client-glue";
+import { ListObjectsV2CommandInput, S3 } from "@aws-sdk/client-s3";
 import {
   testTable,
   testTableKeys,
+  testTableKeysNoPartitions,
   testTablePartitions,
+  testTableWithoutPartitionKeys,
   testTableWithoutStorage,
   testTableWithoutStorageLocation,
-  testTableWithoutPartitionKeys,
-  testTableKeysNoPartitions,
 } from "../common/fixtures/glue-table";
-/* eslint-disable @typescript-eslint/ban-types */
-/* eslint-disable max-len */
-/* eslint-disable @typescript-eslint/no-var-requires */
-/* eslint-disable @typescript-eslint/no-require-imports */
-const AWS = require("aws-sdk");
+
+import { GlueTableToS3Key } from "./glueTableToS3Keys.mapper";
+
+jest.mock("@aws-sdk/client-s3");
+jest.mock("@aws-sdk/client-glue");
 
 let glueGetTableCalled = 0;
 let glueGetPartitionsCalled = 0;
 let s3ListObjectsV2Called = 0;
-AWSMock.setSDKInstance(AWS);
-AWSMock.mock("Glue", "getTable", (params: GetTableRequest, cb: Function) => {
-  glueGetTableCalled++;
-  if (params.Name === "noStorage") return cb(null, { Table: testTableWithoutStorage });
-  if (params.Name === "noStorageLocation") return cb(null, { Table: testTableWithoutStorageLocation });
-  if (params.Name === "noPartitionKeys") return cb(null, { Table: testTableWithoutPartitionKeys });
-  if (params.Name !== "partitioned_and_bucketed_elb_logs_parquet") return cb(null, {});
-  return cb(null, { Table: testTable });
-});
-AWSMock.mock("Glue", "getPartitions", (params: GetPartitionsRequest, cb: Function) => {
-  glueGetPartitionsCalled++;
-  if (params.TableName === "noPartitionKeys") return cb(null, {});
-  cb(null, { Partitions: testTablePartitions });
-});
-AWSMock.mock("S3", "listObjectsV2", (params: ListObjectsV2Request, cb: Function) => {
-  s3ListObjectsV2Called++;
-  const pref = params.Prefix ?? "";
-  if (params.Bucket === "dummy-test-bucket2") {
-    return cb(null, { NextContinuationToken: undefined, Contents: testTableKeysNoPartitions.map(k => ({ Key: k })) });
-  }
-  return cb(null, {
-    NextContinuationToken: undefined,
-    Contents: testTableKeys.filter(k => k.includes(pref)).map(k => ({ Key: k })),
-  });
-});
 
-const s3 = new AWS.S3({ region: "eu-west-1" });
-const glue = new AWS.Glue({ region: "eu-west-1" });
+jest.mock("@aws-sdk/client-glue", () => ({
+  Glue: function Glue() {
+    return {
+      getTable: jest.fn((params: GetTableRequest) => {
+        glueGetTableCalled++;
+        if (params.Name === "noStorage") return Promise.resolve({ Table: testTableWithoutStorage });
+        if (params.Name === "noStorageLocation") return Promise.resolve({ Table: testTableWithoutStorageLocation });
+        if (params.Name === "noPartitionKeys") return Promise.resolve({ Table: testTableWithoutPartitionKeys });
+        if (params.Name !== "partitioned_and_bucketed_elb_logs_parquet") return Promise.resolve({});
+        return Promise.resolve({ Table: testTable });
+      }),
+      getPartitions: jest.fn((params: GetPartitionsRequest) => {
+        glueGetPartitionsCalled++;
+        if (params.TableName === "noPartitionKeys") return Promise.resolve({});
+        return Promise.resolve({ Partitions: testTablePartitions });
+      }),
+    };
+  },
+}));
+
+jest.mock("@aws-sdk/client-s3", () => ({
+  S3: function S3() {
+    return {
+      listObjectsV2: jest.fn((params: ListObjectsV2CommandInput) => {
+        s3ListObjectsV2Called++;
+        const pref = params.Prefix ?? "";
+        if (params.Bucket === "dummy-test-bucket2") {
+          return Promise.resolve({
+            NextContinuationToken: undefined,
+            Contents: testTableKeysNoPartitions.map(k => ({ Key: k })),
+            $metadata: null,
+          });
+        }
+        return Promise.resolve({
+          NextContinuationToken: undefined,
+          Contents: testTableKeys.filter(k => k.includes(pref)).map(k => ({ Key: k })),
+          $metadata: null,
+        });
+      }),
+    };
+  },
+}));
+
+const s3 = new S3({ region: "eu-west-1" });
+const glue = new Glue({ region: "eu-west-1" });
 
 let mapper: GlueTableToS3Key;
 const databaseName = "default";
