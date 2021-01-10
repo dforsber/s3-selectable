@@ -15,6 +15,16 @@ import mergeStream from "merge-stream";
 
 export type PartialBy<TType, TKey extends keyof TType> = Omit<TType, TKey> & Partial<Pick<TType, TKey>>;
 
+export type TS3SelectableParams = PartialBy<
+  SelectObjectContentCommandInput,
+  "Bucket" | "Key" | "ExpressionType" | "OutputSerialization"
+>;
+
+const defaults = {
+  ExpressionType: "SQL",
+  OutputSerialization: { JSON: {} },
+};
+
 export interface IS3Selectable {
   tableName: string;
   databaseName: string;
@@ -39,17 +49,17 @@ export class S3Selectable {
   constructor(private params: IS3Selectable) {}
 
   public async selectObjectContent(
-    s3SelectParams: PartialBy<SelectObjectContentCommandInput, "Bucket" | "Key">,
+    params: TS3SelectableParams,
     onDataHandler?: (event: SelectObjectContentEventStream.RecordsMember) => void,
     onEndHandler?: (event: SelectObjectContentEventStream.RecordsMember) => void,
   ): Promise<stream> {
     await this.cacheTableMetadata();
-    if (!s3SelectParams.Expression) throw new Error("S3 Select params Expression is required");
-    const whereSql = getSQLWhereString(s3SelectParams.Expression, this.partitionColumns);
+    if (!params.Expression) throw new Error("S3 Select params Expression is required");
+    const whereSql = getSQLWhereString(params.Expression, this.partitionColumns);
     const filteredPartitionValues = await this.partitionsFilter.filterPartitions(whereSql);
     const s3Keys = await this.mapper.getKeysByPartitions(filteredPartitionValues);
     const selectStreams = await Promise.all(
-      s3Keys.map((Key: string) => this.getSelectStream({ ...s3SelectParams, Key }, onDataHandler, onEndHandler)),
+      s3Keys.map((Key: string) => this.getSelectStream({ ...defaults, ...params, Key }, onDataHandler, onEndHandler)),
     );
     return mergeStream(selectStreams);
   }
