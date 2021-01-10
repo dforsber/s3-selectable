@@ -28,17 +28,29 @@ export function getTableAndDbFromAST(ast: AST | AST[]): [string | null, string] 
   return [db, table];
 }
 
-export function getTableAndDb(sql: string): [string, string] {
+function getPlainSQLAndExpr(sql: string): [string, string] {
+  const matches = sql.match(/FROM (\w+)\.(\w+)(\S*)\s*(.*)$/im);
+  const expr = matches && matches.length >= 4 ? matches[3] : "";
+  //const rest = matches && matches.length >= 5 ? matches[4] : "";
+  if (expr.trim() === ";") throw new Error("Multiple queries not supported (;)");
+  if (expr.trim()[0] === ".") throw new Error("Can not use format FROM a.b.c");
+  const plainSql = sql.replace(/FROM (\w+)\.(\w+)(\S*)\s*(.*)$/im, `FROM $1.$2 $4`);
+  return [plainSql, expr];
+}
+
+export function getTableAndDbAndExpr(sql: string): [string, string, string] {
+  const [plainSql, expr] = getPlainSQLAndExpr(sql);
   const parser = new Parser();
-  const ast = parser.astify(sql, nodeSqlParserOpts);
+  const ast = parser.astify(plainSql, nodeSqlParserOpts);
   const [db, table] = getTableAndDbFromAST(ast);
   if (!db || !table) throw new Error("Both db and table needed");
-  return [db, table];
+  return [db, table, expr];
 }
 
 export function getSQLWhereAST(sql: string): AST {
+  const [plainSql] = getPlainSQLAndExpr(sql);
   const parser = new Parser();
-  const ast = parser.astify(sql, nodeSqlParserOpts);
+  const ast = parser.astify(plainSql, nodeSqlParserOpts);
   getTableAndDbFromAST(ast);
   return (<Select>ast).where;
 }

@@ -2,56 +2,79 @@ import {
   getSQLWhereAST,
   getSQLWhereString,
   getSQLWhereStringFromAST,
+  getTableAndDbAndExpr,
   makePartitionSpecificAST,
-  getTableAndDb,
 } from "./sql-query.helper";
 
 describe("it getting db and table from SQL clause", () => {
   it("should work with correct select", () => {
-    expect(getTableAndDb("SELECT * FROM db.t")).toEqual(["db", "t"]);
+    expect(getTableAndDbAndExpr("SELECT * FROM db.t")).toEqual(["db", "t", ""]);
   });
   it("should throw with non SQL string", () => {
-    expect(() => getTableAndDb("SELECT TABLE")).toThrowError();
+    expect(() => getTableAndDbAndExpr("SELECT TABLE")).toThrowError();
   });
   it("should throw with non SQL string", () => {
-    expect(() => getTableAndDb("SELECT (1,2)")).toThrowError("Only SELECT queries with FROM are supported");
+    expect(() => getTableAndDbAndExpr("SELECT (1,2)")).toThrowError("Only SELECT queries with FROM are supported");
   });
   it("should work with correct select", () => {
-    expect(getTableAndDb("SELECT * FROM db.t LIMIT 10")).toEqual(["db", "t"]);
+    expect(getTableAndDbAndExpr("SELECT * FROM db.t LIMIT 10")).toEqual(["db", "t", ""]);
   });
-  it("no multiple querier", () => {
-    expect(() => getTableAndDb("SELECT * FROM db.t; SELECT * FROM db2.t2")).toThrowError(
+  it("no multiple queries", () => {
+    expect(() => getTableAndDbAndExpr("SELECT * FROM db.t; SELECT * FROM db2.t2")).toThrowError(
+      "Multiple queries not supported",
+    );
+  });
+  it("no multiple queries with space", () => {
+    expect(() => getTableAndDbAndExpr("SELECT * FROM db.t ; SELECT * FROM db2.t2")).toThrowError(
       "Multiple queries not supported",
     );
   });
   it("Single table FROM only", () => {
-    expect(() => getTableAndDb("SELECT * FROM db.t AS t, db2.t2 as t2")).toThrowError(
+    expect(() => getTableAndDbAndExpr("SELECT * FROM db.t AS t, db2.t2 as t2")).toThrowError(
       "Only single table sources supported for now",
     );
   });
   it("No FROM DUAL", () => {
-    expect(() => getTableAndDb("SELECT * FROM DUAL")).toThrowError("DUAL not supported");
+    expect(() => getTableAndDbAndExpr("SELECT * FROM DUAL")).toThrowError("DUAL not supported");
   });
   it("Both db and table must be given", () => {
-    expect(() => getTableAndDb("SELECT * FROM t")).toThrowError("Both db and table needed");
+    expect(() => getTableAndDbAndExpr("SELECT * FROM t")).toThrowError("Both db and table needed");
   });
   it("should throw on a simple incorrect from db. t", () => {
-    expect(getTableAndDb("SELECT * FROM db. t LIMIT 10")).toEqual(["db", "t"]);
+    expect(getTableAndDbAndExpr("SELECT * FROM db. t LIMIT 10")).toEqual(["db", "t", ""]);
   });
-  it("should throw on a simpl incorrect from db .t", () => {
-    expect(getTableAndDb("SELECT * FROM db .t LIMIT 10")).toEqual(["db", "t"]);
+  it("should throw on a simple incorrect from db .t", () => {
+    expect(getTableAndDbAndExpr("SELECT * FROM db .t LIMIT 10")).toEqual(["db", "t", ""]);
   });
-  it("should throw on a simpl incorrect from catalog.db.t", () => {
-    expect(() => getTableAndDb("SELECT * FROM catalog.db.t LIMIT 10")).toThrowError();
+  it("should throw on a simple incorrect from catalog.db.t", () => {
+    expect(() => getTableAndDbAndExpr("SELECT * FROM catalog.db.t LIMIT 10")).toThrowError();
   });
   it("should throw on a missing table", () => {
-    expect(() => getTableAndDb("SELECT * FROM")).toThrowError();
+    expect(() => getTableAndDbAndExpr("SELECT * FROM")).toThrowError();
   });
   it("should throw on a missing table 2", () => {
-    expect(() => getTableAndDb("SELECT * FROM ")).toThrowError();
+    expect(() => getTableAndDbAndExpr("SELECT * FROM ")).toThrowError();
   });
   it("should throw when query is not SELECT", () => {
-    expect(() => getTableAndDb("DROP TABLE t")).toThrowError("Only SELECT queries are supported");
+    expect(() => getTableAndDbAndExpr("DROP TABLE t")).toThrowError("Only SELECT queries are supported");
+  });
+});
+
+describe("ensuring JSON table queries work too", () => {
+  it("SELECT * FROM db.t", () => {
+    expect(getTableAndDbAndExpr("SELECT * FROM db.t")).toEqual(["db", "t", ""]);
+  });
+  it("SELECT * FROM db.t[*]", () => {
+    expect(getTableAndDbAndExpr("SELECT * FROM db.t[*]")).toEqual(["db", "t", "[*]"]);
+  });
+  it("SELECT * FROM db.t[*].path1", () => {
+    expect(getTableAndDbAndExpr("SELECT * FROM db.t[*].path1")).toEqual(["db", "t", "[*].path1"]);
+  });
+  it("SELECT * FROM db.t[*].path1[*].id", () => {
+    expect(getTableAndDbAndExpr("SELECT * FROM db.t[*].path1[*].id")).toEqual(["db", "t", "[*].path1[*].id"]);
+  });
+  it("SELECT * FROM db.t[*].path1[*].id AS d", () => {
+    expect(getTableAndDbAndExpr("SELECT * FROM db.t[*].path1[*].id AS d")).toEqual(["db", "t", "[*].path1[*].id"]);
   });
 });
 

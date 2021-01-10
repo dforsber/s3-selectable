@@ -5,7 +5,7 @@ import {
   SelectObjectContentCommandInput,
   SelectObjectContentEventStream,
 } from "@aws-sdk/client-s3";
-import { getSQLWhereString, getTableAndDb } from "../utils/sql-query.helper";
+import { getSQLWhereString, getTableAndDbAndExpr } from "../utils/sql-query.helper";
 import stream, { Readable } from "stream";
 
 import { Glue } from "@aws-sdk/client-glue";
@@ -104,8 +104,8 @@ export async function s3selectableNonClass(
   inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" },
   outSer: OutputSerialization = { JSON: {} },
 ): Promise<string[]> {
-  const [databaseName, tableName] = getTableAndDb(sql);
-  const Expression = sql.replace(`${databaseName}.${tableName}`, "s3Object");
+  const [databaseName, tableName, expr] = getTableAndDbAndExpr(sql);
+  const Expression = sql.replace(`${databaseName}.${tableName}`, `s3Object${expr}`);
   const selectable = new S3Selectable({ databaseName, tableName, s3, glue });
   const rowsStream = await selectable.selectObjectContent({
     Expression,
