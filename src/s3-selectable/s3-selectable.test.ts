@@ -135,7 +135,7 @@ describe("Test selectObjectContent", () => {
   });
 
   it("selectObjectContent provides correct results", async () => {
-    const sql = "SELECT * FROM s3Object WHERE elb_response_code='302' AND ssl_protocol='-'";
+    const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
     const inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" };
     const outSer: OutputSerialization = { JSON: {} };
     const selectable = new S3Selectable(params);
@@ -193,7 +193,53 @@ describe("Test selectObjectContent", () => {
   });
 
   it("selectObjectContent provides correct results with onDataHandler and onEndHandler", async () => {
-    const sql = "SELECT * FROM s3Object WHERE elb_response_code='302' AND ssl_protocol='-'";
+    const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
+    const inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" };
+    const outSer: OutputSerialization = { JSON: {} };
+    const selectable = new S3Selectable(params);
+    const rows = await new Promise(r => {
+      const rows: string[] = [];
+      selectable.selectObjectContent(
+        {
+          Expression: sql,
+          ExpressionType: "SQL",
+          InputSerialization: inpSer,
+          OutputSerialization: outSer,
+        },
+        chunk => {
+          if (chunk.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
+        },
+        () => r(rows),
+      );
+    });
+    expect(rows).toMatchInlineSnapshot(`
+      Array [
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+      ]
+    `);
+  });
+
+  it("selectObjectContent provides correct results with onDataHandler and onEndHandler", async () => {
+    const sql = "SELECT * FROM db.t[*] WHERE elb_response_code='302' AND ssl_protocol='-'";
     const inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" };
     const outSer: OutputSerialization = { JSON: {} };
     const selectable = new S3Selectable(params);
