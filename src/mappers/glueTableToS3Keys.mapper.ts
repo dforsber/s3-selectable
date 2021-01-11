@@ -1,11 +1,13 @@
 import { errors } from "../common/errors.enum";
-import { GetPartitionsRequest, Partition, Table } from "@aws-sdk/client-glue";
+import { GetPartitionsRequest, Partition, StorageDescriptor, Table } from "@aws-sdk/client-glue";
 import { IS3Selectable, PartialBy } from "../s3-selectable/s3-selectable";
 import { S3KeysCache } from "../utils/s3KeysCache";
+import { InputSerialization } from "@aws-sdk/client-s3";
 
 export interface ITableInfo {
   Bucket: string;
   PartitionColumns: string[];
+  InputSerialization: InputSerialization | undefined;
 }
 
 // Glue get-table response contains PartitionKeys, which lists partition keys and their type
@@ -16,6 +18,7 @@ export interface ITableInfo {
 export class GlueTableToS3Key {
   private table!: Table;
   private tableLocation!: string;
+  private inputSerialization!: InputSerialization | undefined;
   private tableBucket!: string;
   private partitions!: Partition[];
   private partitionColumns!: string[];
@@ -32,6 +35,7 @@ export class GlueTableToS3Key {
     const tableLocation = table.StorageDescriptor?.Location;
     if (!tableLocation) throw new Error(`No S3 Bucket found for table ${Name}`);
     this.tableLocation = tableLocation;
+    this.inputSerialization = this.getInputSerialisation(table.StorageDescriptor);
     this.tableBucket = this.s3KeysFetcher.getBucketAndPrefix(this.tableLocation).Bucket;
     this.partitionColumns = table.PartitionKeys?.map(col => col.Name || "").filter(e => e) ?? [];
     this.table = table;
@@ -39,10 +43,12 @@ export class GlueTableToS3Key {
   }
 
   public async getTableInfo(): Promise<ITableInfo> {
-    const [Bucket, PartitionColumns] = [this.tableBucket, this.partitionColumns];
-    if (Bucket && PartitionColumns) return { Bucket, PartitionColumns };
-    await this.getTable();
-    return { Bucket: this.tableBucket, PartitionColumns: this.partitionColumns };
+    if (!this.tableBucket || !this.partitionColumns) await this.getTable();
+    return {
+      Bucket: this.tableBucket,
+      PartitionColumns: this.partitionColumns,
+      InputSerialization: this.inputSerialization,
+    };
   }
 
   public async getKeysByPartitions(values: string[]): Promise<string[]> {
@@ -82,5 +88,14 @@ export class GlueTableToS3Key {
     return this.partitions
       .map(p => p.Values)
       .map(v => this.partitionColumns.reduce((a, c, i) => `${a}/${c}=${v ? v[i] : "ValueUndefined"}`, ""));
+  }
+
+  private getInputSerialisation(desc?: StorageDescriptor): InputSerialization | undefined {
+    if (!desc?.SerdeInfo?.SerializationLibrary) return;
+    const serLib = desc.SerdeInfo.SerializationLibrary.toLowerCase();
+    if (serLib.includes("json")) return { JSON: {} };
+    if (serLib.includes("simple")) return { CSV: {} };
+    if (serLib.includes("parquet")) return { Parquet: {} };
+    return;
   }
 }
