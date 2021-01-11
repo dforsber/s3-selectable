@@ -1,9 +1,11 @@
 import { GetPartitionsRequest, GetTableRequest, Glue } from "@aws-sdk/client-glue";
 import { ListObjectsV2CommandInput, S3 } from "@aws-sdk/client-s3";
 import {
-  testTable,
+  testTableCsv,
+  testTableJSON,
   testTableKeys,
   testTableKeysNoPartitions,
+  testTableParquet,
   testTablePartitions,
   testTableWithoutPartitionKeys,
   testTableWithoutStorage,
@@ -27,8 +29,12 @@ jest.mock("@aws-sdk/client-glue", () => ({
         if (params.Name === "noStorage") return Promise.resolve({ Table: testTableWithoutStorage });
         if (params.Name === "noStorageLocation") return Promise.resolve({ Table: testTableWithoutStorageLocation });
         if (params.Name === "noPartitionKeys") return Promise.resolve({ Table: testTableWithoutPartitionKeys });
-        if (params.Name !== "partitioned_and_bucketed_elb_logs_parquet") return Promise.resolve({});
-        return Promise.resolve({ Table: testTable });
+        if (params.Name === "partitioned_and_bucketed_elb_logs_parquet")
+          return Promise.resolve({ Table: testTableParquet });
+        if (params.Name === "bucketed_elb_logs") return Promise.resolve({ Table: testTableCsv });
+        if (params.Name === "bucketed_elb_logs_from_partitioned_2_json")
+          return Promise.resolve({ Table: testTableJSON });
+        return Promise.resolve({});
       }),
       getPartitions: jest.fn((params: GetPartitionsRequest) => {
         glueGetPartitionsCalled++;
@@ -123,11 +129,15 @@ describe("When fetching partitioning information", () => {
     expect(keys.length).toEqual(0);
   });
 
-  it("correctly identifies table information", async () => {
+  it("correctly identifies table information (Parquet)", async () => {
+    mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "partitioned_and_bucketed_elb_logs_parquet" });
     let info = await mapper.getTableInfo();
     expect(info).toMatchInlineSnapshot(`
       Object {
         "Bucket": "dummy-test-bucket",
+        "InputSerialization": Object {
+          "Parquet": Object {},
+        },
         "PartitionColumns": Array [
           "ssl_protocol",
           "elb_response_code",
@@ -138,10 +148,67 @@ describe("When fetching partitioning information", () => {
     expect(info).toMatchInlineSnapshot(`
       Object {
         "Bucket": "dummy-test-bucket",
+        "InputSerialization": Object {
+          "Parquet": Object {},
+        },
         "PartitionColumns": Array [
           "ssl_protocol",
           "elb_response_code",
         ],
+      }
+    `);
+    expect(glueGetTableCalled).toEqual(1);
+    expect(glueGetPartitionsCalled).toEqual(0);
+    expect(s3ListObjectsV2Called).toEqual(0);
+  });
+
+  it("correctly identifies table information (CSV)", async () => {
+    mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "bucketed_elb_logs" });
+    let info = await mapper.getTableInfo();
+    expect(info).toMatchInlineSnapshot(`
+      Object {
+        "Bucket": "dummy-test-bucket",
+        "InputSerialization": Object {
+          "CSV": Object {},
+        },
+        "PartitionColumns": Array [],
+      }
+    `);
+    info = await mapper.getTableInfo();
+    expect(info).toMatchInlineSnapshot(`
+      Object {
+        "Bucket": "dummy-test-bucket",
+        "InputSerialization": Object {
+          "CSV": Object {},
+        },
+        "PartitionColumns": Array [],
+      }
+    `);
+    expect(glueGetTableCalled).toEqual(1);
+    expect(glueGetPartitionsCalled).toEqual(0);
+    expect(s3ListObjectsV2Called).toEqual(0);
+  });
+
+  it("correctly identifies table information (JSON)", async () => {
+    mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "bucketed_elb_logs_from_partitioned_2_json" });
+    let info = await mapper.getTableInfo();
+    expect(info).toMatchInlineSnapshot(`
+      Object {
+        "Bucket": "dummy-test-bucket",
+        "InputSerialization": Object {
+          "JSON": Object {},
+        },
+        "PartitionColumns": Array [],
+      }
+    `);
+    info = await mapper.getTableInfo();
+    expect(info).toMatchInlineSnapshot(`
+      Object {
+        "Bucket": "dummy-test-bucket",
+        "InputSerialization": Object {
+          "JSON": Object {},
+        },
+        "PartitionColumns": Array [],
       }
     `);
     expect(glueGetTableCalled).toEqual(1);

@@ -1,14 +1,8 @@
 import { GetPartitionsRequest, GetTableRequest } from "@aws-sdk/client-glue";
-import {
-  InputSerialization,
-  ListObjectsV2CommandInput,
-  OutputSerialization,
-  S3,
-  SelectObjectContentCommandInput,
-} from "@aws-sdk/client-s3";
+import { ListObjectsV2CommandInput, S3, SelectObjectContentCommandInput } from "@aws-sdk/client-s3";
 import { Readable, ReadableOptions } from "stream";
 import { S3Selectable, s3selectableNonClass } from "./s3-selectable";
-import { testTable, testTableKeys, testTablePartitions } from "../common/fixtures/glue-table";
+import { testTableKeys, testTableParquet, testTablePartitions } from "../common/fixtures/glue-table";
 
 import { Glue } from "@aws-sdk/client-glue";
 
@@ -71,7 +65,7 @@ jest.mock("@aws-sdk/client-glue", () => ({
         glueGetTableCalled++;
         if (params.Name !== "partitioned_and_bucketed_elb_logs_parquet")
           return Promise.reject(`Table not found: ${params.Name}`);
-        return Promise.resolve({ Table: testTable });
+        return Promise.resolve({ Table: testTableParquet });
       }),
       getPartitions: jest.fn((_params: GetPartitionsRequest) => {
         glueGetPartitionsCalled++;
@@ -136,25 +130,13 @@ describe("Test selectObjectContent", () => {
 
   it("selectObjectContent provides correct results", async () => {
     const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
-    const inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" };
-    const outSer: OutputSerialization = { JSON: {} };
     const selectable = new S3Selectable(params);
-    await selectable.selectObjectContent({
-      Expression: sql,
-      ExpressionType: "SQL",
-      InputSerialization: inpSer,
-      OutputSerialization: outSer,
-    });
+    await selectable.selectObjectContent({ Expression: sql });
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(1); // 1 table
     expect(s3ListObjectsV2Called).toEqual(1); // 1 partition
     expect(selectObjectContent).toEqual(10); // 10 objects
-    const rowsStream = await selectable.selectObjectContent({
-      Expression: sql,
-      ExpressionType: "SQL",
-      InputSerialization: inpSer,
-      OutputSerialization: outSer,
-    });
+    const rowsStream = await selectable.selectObjectContent({ Expression: sql });
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(1); // 1 table
     expect(s3ListObjectsV2Called).toEqual(1); // S3 Keys are cached per partition
@@ -194,18 +176,11 @@ describe("Test selectObjectContent", () => {
 
   it("selectObjectContent provides correct results with onDataHandler and onEndHandler", async () => {
     const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
-    const inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" };
-    const outSer: OutputSerialization = { JSON: {} };
     const selectable = new S3Selectable(params);
     const rows = await new Promise(r => {
       const rows: string[] = [];
       selectable.selectObjectContent(
-        {
-          Expression: sql,
-          ExpressionType: "SQL",
-          InputSerialization: inpSer,
-          OutputSerialization: outSer,
-        },
+        { Expression: sql },
         chunk => {
           if (chunk.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
         },
@@ -240,18 +215,11 @@ describe("Test selectObjectContent", () => {
 
   it("selectObjectContent provides correct results with onDataHandler and onEndHandler", async () => {
     const sql = "SELECT * FROM db.t[*] WHERE elb_response_code='302' AND ssl_protocol='-'";
-    const inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" };
-    const outSer: OutputSerialization = { JSON: {} };
     const selectable = new S3Selectable(params);
     const rows = await new Promise(r => {
       const rows: string[] = [];
       selectable.selectObjectContent(
-        {
-          Expression: sql,
-          ExpressionType: "SQL",
-          InputSerialization: inpSer,
-          OutputSerialization: outSer,
-        },
+        { Expression: sql },
         chunk => {
           if (chunk.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
         },
@@ -290,18 +258,8 @@ describe("Test selectObjectContent", () => {
     const [databaseName, tableName] = ["default", "partitioned_and_bucketed_elb_logs_parquet"];
     const params = { glue, s3, tableName, databaseName };
     const sql = "SELECT * FROM s3Object WHERE noPayload='true'";
-    const inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" };
-    const outSer: OutputSerialization = { JSON: {} };
     const selectable = new S3Selectable(params);
-    await expect(
-      async () =>
-        await selectable.selectObjectContent({
-          Expression: sql,
-          ExpressionType: "SQL",
-          InputSerialization: inpSer,
-          OutputSerialization: outSer,
-        }),
-    ).rejects.toThrowError();
+    await expect(async () => await selectable.selectObjectContent({ Expression: sql })).rejects.toThrowError();
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(1); // 1 table
   });
@@ -311,18 +269,8 @@ describe("Test selectObjectContent", () => {
     const glue = new Glue({ region: "eu-west-1" });
     const [databaseName, tableName] = ["default", "partitioned_and_bucketed_elb_logs_parquet"];
     const params = { glue, s3, tableName, databaseName };
-    const inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" };
-    const outSer: OutputSerialization = { JSON: {} };
     const selectable = new S3Selectable(params);
-    await expect(
-      async () =>
-        await selectable.selectObjectContent({
-          Expression: undefined,
-          ExpressionType: "SQL",
-          InputSerialization: inpSer,
-          OutputSerialization: outSer,
-        }),
-    ).rejects.toThrowError();
+    await expect(async () => await selectable.selectObjectContent({ Expression: undefined })).rejects.toThrowError();
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(1); // 1 table
   });

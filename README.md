@@ -30,10 +30,10 @@ async function main() {
       // Bucket: "BucketIsOptionalAndNotUsed",
       // Key: "KeyIsOptionalAndNotUsed",
       // ..otherwise the interface is the same.
-      ExpressionType: "SQL",
-      InputSerialization: { CSV: {} },
-      OutputSerialization: { JSON: {} },
-      Expression: "SELECT * FROM S3Object LIMIT 2",
+      // ExpressionType: "SQL",             // default
+      // InputSerialization: { CSV: {} },   // deduced from Hive Metastore
+      // OutputSerialization: { JSON: {} }, // by default JSON
+      Expression: "SELECT * FROM s3Object[*] LIMIT 2",
     },
     chunk => {
       if (chunk.Records?.Payload) process.stdout.write(Buffer.from(chunk.Records.Payload).toString());

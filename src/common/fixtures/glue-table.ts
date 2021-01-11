@@ -1,11 +1,11 @@
 /* eslint-disable max-len */
-export const testTable = {
+export const testTableParquet = {
+  Name: "partitioned_and_bucketed_elb_logs_parquet",
+  DatabaseName: "default",
   CreateTime: new Date("2020-05-25T19:50:34.000Z"),
   CreatedBy: "arn:aws:iam::589434896614:root",
-  DatabaseName: "default",
   IsRegisteredWithLakeFormation: false,
   LastAccessTime: new Date("1970-01-01T00:00:00.000Z"),
-  Name: "partitioned_and_bucketed_elb_logs_parquet",
   Owner: "589434896614",
   Parameters: {
     EXTERNAL: "TRUE",
@@ -133,18 +133,287 @@ export const testTable = {
   ViewExpandedText: "",
   ViewOriginalText: "",
 };
-export const testTableWithoutStorage = { ...testTable, StorageDescriptor: undefined };
+
+export const testTableCsv = {
+  Name: "bucketed_elb_logs",
+  DatabaseName: "default",
+  Owner: "589434896614",
+  CreateTime: "2019-12-01T21:18:43+00:00",
+  UpdateTime: "2019-12-01T21:18:43+00:00",
+  LastAccessTime: "1970-01-01T00:00:00+00:00",
+  Retention: 0,
+  StorageDescriptor: {
+    Columns: [
+      {
+        Name: "request_timestamp",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "elb_name",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "request_ip",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "request_port",
+        Type: "int",
+        Comment: "",
+      },
+      {
+        Name: "backend_ip",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "backend_port",
+        Type: "int",
+        Comment: "",
+      },
+      {
+        Name: "request_processing_time",
+        Type: "double",
+        Comment: "",
+      },
+      {
+        Name: "backend_processing_time",
+        Type: "double",
+        Comment: "",
+      },
+      {
+        Name: "client_response_time",
+        Type: "double",
+        Comment: "",
+      },
+      {
+        Name: "elb_response_code",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "backend_response_code",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "received_bytes",
+        Type: "bigint",
+        Comment: "",
+      },
+      {
+        Name: "sent_bytes",
+        Type: "bigint",
+        Comment: "",
+      },
+      {
+        Name: "request_verb",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "url",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "protocol",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "user_agent",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "ssl_cipher",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "ssl_protocol",
+        Type: "string",
+        Comment: "",
+      },
+    ],
+    Location: "s3://dummy-test-bucket/ctas_csv_bucketed",
+    InputFormat: "org.apache.hadoop.mapred.TextInputFormat",
+    OutputFormat: "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+    Compressed: false,
+    NumberOfBuckets: 1,
+    SerdeInfo: {
+      Name: "bucketed_elb_logs",
+      SerializationLibrary: "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+      Parameters: {},
+    },
+    BucketColumns: ["request_timestamp"],
+    SortColumns: [],
+    Parameters: {},
+    StoredAsSubDirectories: false,
+  },
+  PartitionKeys: [],
+  ViewOriginalText: "",
+  ViewExpandedText: "",
+  TableType: "EXTERNAL_TABLE",
+  Parameters: {
+    EXTERNAL: "TRUE",
+    has_encrypted_data: "false",
+  },
+  CreatedBy: "arn:aws:iam::589434896614:root",
+  IsRegisteredWithLakeFormation: false,
+  CatalogId: "589434896614",
+};
+
+export const testTableJSON = {
+  Name: "bucketed_elb_logs_from_partitioned_2_json",
+  DatabaseName: "default",
+  Owner: "589434896614",
+  CreateTime: "2019-12-01T22:27:47+00:00",
+  UpdateTime: "2019-12-01T22:27:47+00:00",
+  LastAccessTime: "1970-01-01T00:00:00+00:00",
+  Retention: 0,
+  StorageDescriptor: {
+    Columns: [
+      {
+        Name: "request_timestamp",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "elb_name",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "request_ip",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "request_port",
+        Type: "int",
+        Comment: "",
+      },
+      {
+        Name: "backend_ip",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "backend_port",
+        Type: "int",
+        Comment: "",
+      },
+      {
+        Name: "request_processing_time",
+        Type: "double",
+        Comment: "",
+      },
+      {
+        Name: "backend_processing_time",
+        Type: "double",
+        Comment: "",
+      },
+      {
+        Name: "client_response_time",
+        Type: "double",
+        Comment: "",
+      },
+      {
+        Name: "elb_response_code",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "backend_response_code",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "received_bytes",
+        Type: "bigint",
+        Comment: "",
+      },
+      {
+        Name: "sent_bytes",
+        Type: "bigint",
+        Comment: "",
+      },
+      {
+        Name: "request_verb",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "url",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "protocol",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "user_agent",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "ssl_cipher",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "ssl_protocol",
+        Type: "string",
+        Comment: "",
+      },
+    ],
+    Location: "s3://dummy-test-bucket/ctas_csv_bucketed_from_partitioned_2_json",
+    InputFormat: "org.apache.hadoop.mapred.TextInputFormat",
+    OutputFormat: "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+    Compressed: false,
+    NumberOfBuckets: 1,
+    SerdeInfo: {
+      Name: "bucketed_elb_logs_from_partitioned_2_json",
+      SerializationLibrary: "org.apache.hive.hcatalog.data.JsonSerDe",
+      Parameters: {},
+    },
+    BucketColumns: ["request_timestamp"],
+    SortColumns: [],
+    Parameters: {},
+    StoredAsSubDirectories: false,
+  },
+  PartitionKeys: [],
+  ViewOriginalText: "",
+  ViewExpandedText: "",
+  TableType: "EXTERNAL_TABLE",
+  Parameters: {
+    EXTERNAL: "TRUE",
+    has_encrypted_data: "false",
+  },
+  CreatedBy: "arn:aws:iam::589434896614:root",
+  IsRegisteredWithLakeFormation: false,
+  CatalogId: "589434896614",
+};
+
+export const testTableWithoutStorage = { ...testTableParquet, StorageDescriptor: undefined };
 
 export const testTableWithoutStorageLocation = {
-  ...testTable,
-  StorageDescriptor: { ...testTable.StorageDescriptor, Location: undefined },
+  ...testTableParquet,
+  StorageDescriptor: { ...testTableParquet.StorageDescriptor, Location: undefined },
 };
 
 export const testTableWithoutPartitionKeys = {
-  ...testTable,
+  ...testTableParquet,
   PartitionKeys: undefined,
   StorageDescriptor: {
-    ...testTable.StorageDescriptor,
+    ...testTableParquet.StorageDescriptor,
     Location: "s3://dummy-test-bucket2/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e",
   },
 };
@@ -185,7 +454,7 @@ export const testTablePartitions = [
         { Name: "elb_name", Type: "string", Comment: "" },
       ],
       Location:
-        "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302",
+        "s3://dummy-test-bucket/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302",
       InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
       OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
       Compressed: false,
@@ -240,7 +509,7 @@ export const testTablePartitions = [
         { Name: "elb_name", Type: "string", Comment: "" },
       ],
       Location:
-        "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=500",
+        "s3://dummy-test-bucket/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=500",
       InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
       OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
       Compressed: false,
@@ -295,7 +564,7 @@ export const testTablePartitions = [
         { Name: "elb_name", Type: "string", Comment: "" },
       ],
       Location:
-        "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=301",
+        "s3://dummy-test-bucket/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=301",
       InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
       OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
       Compressed: false,
@@ -350,7 +619,7 @@ export const testTablePartitions = [
         { Name: "elb_name", Type: "string", Comment: "" },
       ],
       Location:
-        "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=500",
+        "s3://dummy-test-bucket/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=500",
       InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
       OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
       Compressed: false,
@@ -405,7 +674,7 @@ export const testTablePartitions = [
         { Name: "elb_name", Type: "string", Comment: "" },
       ],
       Location:
-        "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=302",
+        "s3://dummy-test-bucket/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=302",
       InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
       OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
       Compressed: false,
@@ -460,7 +729,7 @@ export const testTablePartitions = [
         { Name: "elb_name", Type: "string", Comment: "" },
       ],
       Location:
-        "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=404",
+        "s3://dummy-test-bucket/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=404",
       InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
       OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
       Compressed: false,
@@ -515,7 +784,7 @@ export const testTablePartitions = [
         { Name: "elb_name", Type: "string", Comment: "" },
       ],
       Location:
-        "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=404",
+        "s3://dummy-test-bucket/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=404",
       InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
       OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
       Compressed: false,
@@ -570,7 +839,7 @@ export const testTablePartitions = [
         { Name: "elb_name", Type: "string", Comment: "" },
       ],
       Location:
-        "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=200",
+        "s3://dummy-test-bucket/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=200",
       InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
       OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
       Compressed: false,
@@ -625,7 +894,7 @@ export const testTablePartitions = [
         { Name: "elb_name", Type: "string", Comment: "" },
       ],
       Location:
-        "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=301",
+        "s3://dummy-test-bucket/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=TLSv1.2/elb_response_code=301",
       InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
       OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
       Compressed: false,
@@ -680,7 +949,7 @@ export const testTablePartitions = [
         { Name: "elb_name", Type: "string", Comment: "" },
       ],
       Location:
-        "s3://athena-results-dforsber/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=200",
+        "s3://dummy-test-bucket/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=200",
       InputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
       OutputFormat: "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
       Compressed: false,
