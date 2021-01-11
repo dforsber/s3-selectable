@@ -402,6 +402,140 @@ export const testTableJSON = {
   CatalogId: "589434896614",
 };
 
+export const testTableUnsupportedJSON = {
+  Name: "bucketed_elb_logs_unsupported_serde",
+  DatabaseName: "default",
+  Owner: "589434896614",
+  CreateTime: "2019-12-01T22:27:47+00:00",
+  UpdateTime: "2019-12-01T22:27:47+00:00",
+  LastAccessTime: "1970-01-01T00:00:00+00:00",
+  Retention: 0,
+  StorageDescriptor: {
+    Columns: [
+      {
+        Name: "request_timestamp",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "elb_name",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "request_ip",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "request_port",
+        Type: "int",
+        Comment: "",
+      },
+      {
+        Name: "backend_ip",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "backend_port",
+        Type: "int",
+        Comment: "",
+      },
+      {
+        Name: "request_processing_time",
+        Type: "double",
+        Comment: "",
+      },
+      {
+        Name: "backend_processing_time",
+        Type: "double",
+        Comment: "",
+      },
+      {
+        Name: "client_response_time",
+        Type: "double",
+        Comment: "",
+      },
+      {
+        Name: "elb_response_code",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "backend_response_code",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "received_bytes",
+        Type: "bigint",
+        Comment: "",
+      },
+      {
+        Name: "sent_bytes",
+        Type: "bigint",
+        Comment: "",
+      },
+      {
+        Name: "request_verb",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "url",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "protocol",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "user_agent",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "ssl_cipher",
+        Type: "string",
+        Comment: "",
+      },
+      {
+        Name: "ssl_protocol",
+        Type: "string",
+        Comment: "",
+      },
+    ],
+    Location: "s3://dummy-test-bucket/ctas_csv_bucketed_from_partitioned_2_json",
+    InputFormat: "org.apache.hadoop.mapred.TextInputFormat",
+    OutputFormat: "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+    Compressed: false,
+    NumberOfBuckets: 1,
+    SerdeInfo: {
+      Name: "bucketed_elb_logs_from_partitioned_2_json",
+      SerializationLibrary: "org.apache.hive.hcatalog.data.UnknownSerde",
+      Parameters: {},
+    },
+    BucketColumns: ["request_timestamp"],
+    SortColumns: [],
+    Parameters: {},
+    StoredAsSubDirectories: false,
+  },
+  PartitionKeys: [],
+  ViewOriginalText: "",
+  ViewExpandedText: "",
+  TableType: "EXTERNAL_TABLE",
+  Parameters: {
+    EXTERNAL: "TRUE",
+    has_encrypted_data: "false",
+  },
+  CreatedBy: "arn:aws:iam::589434896614:root",
+  IsRegisteredWithLakeFormation: false,
+  CatalogId: "589434896614",
+};
+
 export const testTableWithoutStorage = { ...testTableParquet, StorageDescriptor: undefined };
 
 export const testTableWithoutStorageLocation = {

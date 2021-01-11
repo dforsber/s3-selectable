@@ -84,11 +84,11 @@ export class S3Selectable {
    * getPartitionValues concurrently (Promise.all) while doing caching
    */
   public async cacheTableMetadata(): Promise<void> {
-    const partCols = await this.mapper.getTableInfo();
+    const info = await this.mapper.getTableInfo();
     [this.s3bucket, this.partitionColumns, this.inputSerialisation] = [
-      partCols.Bucket,
-      partCols.PartitionColumns,
-      partCols.InputSerialization,
+      info.Bucket,
+      info.PartitionColumns,
+      info.InputSerialization,
     ];
     this.partitionValues = await this.mapper.getPartitionValues();
     this.partitionsFilter = this.partitionsFilter

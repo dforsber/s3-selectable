@@ -7,6 +7,7 @@ import {
   testTableKeysNoPartitions,
   testTableParquet,
   testTablePartitions,
+  testTableUnsupportedJSON,
   testTableWithoutPartitionKeys,
   testTableWithoutStorage,
   testTableWithoutStorageLocation,
@@ -34,6 +35,8 @@ jest.mock("@aws-sdk/client-glue", () => ({
         if (params.Name === "bucketed_elb_logs") return Promise.resolve({ Table: testTableCsv });
         if (params.Name === "bucketed_elb_logs_from_partitioned_2_json")
           return Promise.resolve({ Table: testTableJSON });
+        if (params.Name === "bucketed_elb_logs_unsupported_serde")
+          return Promise.resolve({ Table: testTableUnsupportedJSON });
         return Promise.resolve({});
       }),
       getPartitions: jest.fn((params: GetPartitionsRequest) => {
@@ -187,6 +190,18 @@ describe("When fetching partitioning information", () => {
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(0);
     expect(s3ListObjectsV2Called).toEqual(0);
+  });
+
+  it("correctly identifies table information (unknown)", async () => {
+    mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "bucketed_elb_logs_unsupported_serde" });
+    const info = await mapper.getTableInfo();
+    expect(info).toMatchInlineSnapshot(`
+      Object {
+        "Bucket": "dummy-test-bucket",
+        "InputSerialization": undefined,
+        "PartitionColumns": Array [],
+      }
+    `);
   });
 
   it("correctly identifies table information (JSON)", async () => {

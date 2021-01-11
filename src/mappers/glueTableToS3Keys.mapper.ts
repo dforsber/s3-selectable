@@ -91,7 +91,7 @@ export class GlueTableToS3Key {
   }
 
   private getInputSerialisation(desc?: StorageDescriptor): InputSerialization | undefined {
-    if (!desc || !desc.SerdeInfo || !desc.SerdeInfo.SerializationLibrary) return;
+    if (!desc?.SerdeInfo?.SerializationLibrary) return;
     const serLib = desc.SerdeInfo.SerializationLibrary.toLowerCase();
     if (serLib.includes("json")) return { JSON: {} };
     if (serLib.includes("simple")) return { CSV: {} };
