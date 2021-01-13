@@ -128,6 +128,19 @@ describe("Test selectObjectContent", () => {
     `);
   });
 
+  it("selectObjectContent throws when Expression is not SQL", async () => {
+    const selectable = new S3Selectable(params);
+    await expect(() => selectable.selectObjectContent({ Expression: "" })).rejects.toThrowError();
+  });
+
+  it("selectObjectContent throws when Expression is not SQL", async () => {
+    const selectable = new S3Selectable(params);
+    const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
+    await expect(() =>
+      selectable.selectObjectContent({ Expression: sql, ExpressionType: "PartiQL" }),
+    ).rejects.toThrowError();
+  });
+
   it("selectObjectContent provides correct results", async () => {
     const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
     const selectable = new S3Selectable(params);

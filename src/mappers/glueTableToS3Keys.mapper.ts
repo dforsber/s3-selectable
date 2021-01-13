@@ -90,11 +90,12 @@ export class GlueTableToS3Key {
       .map(v => this.partitionColumns.reduce((a, c, i) => `${a}/${c}=${v ? v[i] : "ValueUndefined"}`, ""));
   }
 
+  // This is rudimentary and assumes e.g. that CSV files are GZIP compressed.
   private getInputSerialisation(desc?: StorageDescriptor): InputSerialization | undefined {
     if (!desc?.SerdeInfo?.SerializationLibrary) return;
     const serLib = desc.SerdeInfo.SerializationLibrary.toLowerCase();
-    if (serLib.includes("json")) return { JSON: {} };
-    if (serLib.includes("simple")) return { CSV: {} };
+    if (serLib.includes("json")) return { JSON: { Type: "DOCUMENT" } };
+    if (serLib.includes("simple")) return { CSV: {}, CompressionType: "GZIP" };
     if (serLib.includes("parquet")) return { Parquet: {} };
     return;
   }

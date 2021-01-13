@@ -13,8 +13,8 @@ async function classBasedExample(): Promise<void> {
   const tableParams: IS3Selectable = {
     s3: new S3(region),
     glue: new Glue(region),
-    tableName: process.env.TABLE_NAME ?? "partitioned_elb_logs",
     databaseName: process.env.DATABASE_NAME ?? "default",
+    tableName: process.env.TABLE_NAME ?? "partitioned_elb_logs",
   };
   const glueTable = new S3Selectable(tableParams);
   const selectStream = await glueTable.selectObjectContent({
