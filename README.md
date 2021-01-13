@@ -4,7 +4,7 @@
 [![codecov](https://codecov.io/gh/dforsber/s3-selectable/branch/master/graph/badge.svg)](https://codecov.io/gh/dforsber/s3-selectable)
 ![BuiltBy](https://img.shields.io/badge/TypeScript-Lovers-black.svg "img.shields.io")
 
-This module runs parallel [S3 Select](https://aws.amazon.com/blogs/developer/introducing-support-for-amazon-s3-select-in-the-aws-sdk-for-javascript/) over all the S3 Keys of a [Glue Table](https://docs.aws.amazon.com/glue/latest/dg/tables-described.html) and returns a single [merged event stream](https://github.com/grncdr/merge-stream). The API is the same as for [S3 Select NodeJS SDK (`S3.selectObjectContent`)](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#selectObjectContent-property), i.e. params are passed thorugh, but `Bucket` and `Key` are replaced from values for the Glue Table S3 Data.
+This module runs parallel [S3 Select](https://aws.amazon.com/blogs/developer/introducing-support-for-amazon-s3-select-in-the-aws-sdk-for-javascript/) over all the S3 Keys of a [Glue Table](https://docs.aws.amazon.com/glue/latest/dg/tables-described.html) and returns a single [merged event stream](https://github.com/grncdr/merge-stream). The API is the same as for [S3 Select NodeJS SDK (`S3.selectObjectContent`)](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#selectObjectContent-property), i.e. params are passed through, but `Bucket` and `Key` are replaced from values for the Glue Table S3 Data. Additionally, `ExpressionType` is optional and defaults to `SQL`, `InputSerialization` is deducted from Glue Table serde if not provided, and `OutputSerialization` defaults to `JSON`.
 
 ```shell
 yarn add @dforsber/s3-selectable
@@ -15,31 +15,35 @@ const { S3 } = require("@aws-sdk/client-s3");
 const { Glue } = require("@aws-sdk/client-glue");
 const { S3Selectable } = require("@dforsber/s3-selectable");
 
+const region = { region: "eu-west-1" };
+
 async function main() {
   // NOTE: Instantiation of the class will start querying AWS Glue and S3 to
   //       fetch all S3 Object Keys that corresponds with the Glue Table data.
-  const glueTable = new S3Selectable({
-    s3: new S3({ region: "eu-west-1" }),
-    glue: new Glue({ region: "eu-west-1" }),
-    tableName: "elb_logs",
-    databaseName: "sampledb",
+  const selectable = new S3Selectable({
+    s3: new S3(region),
+    glue: new Glue(region),
+    databaseName: "default",
+    tableName: "partitioned_elb_logs",
   });
 
-  const selectStream = await glueTable.selectObjectContent(
-    {
-      // Bucket: "BucketIsOptionalAndNotUsed",
-      // Key: "KeyIsOptionalAndNotUsed",
-      // ..otherwise the interface is the same.
-      // ExpressionType: "SQL",             // default
-      // InputSerialization: { CSV: {} },   // deduced from Hive Metastore
-      // OutputSerialization: { JSON: {} }, // by default JSON
-      Expression: "SELECT * FROM s3Object[*] LIMIT 2",
-    },
-    chunk => {
-      if (chunk.Records?.Payload) process.stdout.write(Buffer.from(chunk.Records.Payload).toString());
-    },
-    () => console.log("Stream end"),
-  );
+  const onData = chunk => {
+    const data = Buffer.from((chunk.Records || {}).Payload || "").toString();
+    process.stdout.write(data);
+  };
+
+  const onEnd = () => console.log("Stream end");
+
+  const selectParams = {
+    // Bucket: "",                        // optional and not used
+    // Key: "",                           // optional and not used
+    // ExpressionType: "SQL",             // defaults to SQL
+    // InputSerialization: { CSV: {},     // some rudimentary autodetection
+    //   CompressionType: "GZIP" },       //  from Glue Table metadata
+    // OutputSerialization: { JSON: {} }, // defaults to JSON
+    Expression: "SELECT * FROM s3Object LIMIT 2",
+  };
+  await selectable.selectObjectContent(selectParams, onData, onEnd);
 }
 
 main().catch(err => console.log(err));
@@ -49,13 +53,13 @@ main().catch(err => console.log(err));
 
 [AWS S3 Select](https://docs.aws.amazon.com/AmazonS3/latest/API/API_SelectObjectContent.html) is a filtering stream over S3 Objects, where filtering is defined with SQL syntax. Glue Tables are metadata about structured data on S3 that can point to hundreds of different S3 Objects in separate Hive Partitions and Hive Buckets.
 
-S3 Select doesn't understand anything about Glue Tables, but it supports high parallelism. This module provides the same `S3.selectObjectContent` method in the `s3SelectOnTable` class, but makes `Bucket` and `Key` optional as those are read from the Glue Table itself. For each S3 Object in the Glue Table data location and partitions, it launches S3 Select and returns a single stream as merged stream of all the concurrent S3 Select calls.
+S3 Select doesn't understand anything about Glue Tables, but it supports high parallelism. This module provides the same `S3.selectObjectContent` method in the `s3Selectable` class, but makes `Bucket` and `Key` optional as those are read from the Glue Table itself. For each S3 Object in the Glue Table data location and partitions, it launches S3 Select and returns a single stream as merged stream of all the concurrent S3 Select calls.
 
-When the class `s3SelectOnTable` is instantiated it triggers AWS API calls for fetching table metadata and getting all S3 Keys for the table data. You can then issue multiple S3 Select calls over the same table, while the metadata is in-memory.
+When the class `s3Selectable` is instantiated it triggers AWS API calls for fetching table metadata and getting all S3 Keys for the table data. You can then issue multiple S3 Select calls over the same table, while the metadata is in-memory.
 
 ### Usage with Lambda
 
-`s3SelectOnTable` should be instantiated outside the Lambda handler, i.e. during the cold start. This way warm Lambda container has the Glue Table "metadata" already in-memory.
+`s3Selectable` should be instantiated outside the Lambda handler, i.e. during the cold start. This way warm Lambda container has the Glue Table "metadata" already in-memory.
 
 ## Narrowed scope with partition filtering
 

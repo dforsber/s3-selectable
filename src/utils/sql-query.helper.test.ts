@@ -1,4 +1,5 @@
 import {
+  getPlainSQLAndExpr,
   getSQLWhereAST,
   getSQLWhereString,
   getSQLWhereStringFromAST,
@@ -75,6 +76,25 @@ describe("ensuring JSON table queries work too", () => {
   });
   it("SELECT * FROM db.t[*].path1[*].id AS d", () => {
     expect(getTableAndDbAndExpr("SELECT * FROM db.t[*].path1[*].id AS d")).toEqual(["db", "t", "[*].path1[*].id"]);
+  });
+  // get plain SQL and expression with s3Object "table"
+  it("SELECT * FROM s3Object[*]", () => {
+    expect(getPlainSQLAndExpr("SELECT * FROM s3Object[*]")).toEqual(["SELECT * FROM s3Object", "[*]"]);
+  });
+  it("SELECT * FROM s3Object[*].path1", () => {
+    expect(getPlainSQLAndExpr("SELECT * FROM s3Object[*].path1")).toEqual(["SELECT * FROM s3Object", "[*].path1"]);
+  });
+  it("SELECT * FROM s3Object[*].path1[*].id", () => {
+    expect(getPlainSQLAndExpr("SELECT * FROM s3Object[*].path1[*].id")).toEqual([
+      "SELECT * FROM s3Object",
+      "[*].path1[*].id",
+    ]);
+  });
+  it("SELECT * FROM s3Object[*].path1[*].id AS d", () => {
+    expect(getPlainSQLAndExpr("SELECT * FROM s3Object[*].path1[*].id AS d")).toEqual([
+      "SELECT * FROM s3Object AS d",
+      "[*].path1[*].id",
+    ]);
   });
 });
 

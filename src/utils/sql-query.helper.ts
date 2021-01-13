@@ -28,13 +28,14 @@ export function getTableAndDbFromAST(ast: AST | AST[]): [string | null, string] 
   return [db, table];
 }
 
-function getPlainSQLAndExpr(sql: string): [string, string] {
-  const matches = sql.match(/FROM (\w+)\.(\w+)(\S*)\s*(.*)$/im);
-  const expr = matches && matches.length >= 4 ? matches[3] : "";
-  //const rest = matches && matches.length >= 5 ? matches[4] : "";
+export function getPlainSQLAndExpr(sql: string): [string, string] {
+  const regex = /FROM (\w+)(\.*)(\w*)(\S*)\s*(.*)$/im;
+  const matches = sql.match(regex);
+  const expr = matches && matches.length >= 5 ? matches[4] : "";
+  //const rest = matches && matches.length >= 6 ? matches[5] : "";
   if (expr.trim() === ";") throw new Error("Multiple queries not supported (;)");
   if (expr.trim()[0] === ".") throw new Error("Can not use format FROM a.b.c");
-  const plainSql = sql.replace(/FROM (\w+)\.(\w+)(\S*)\s*(.*)$/im, `FROM $1.$2 $4`);
+  const plainSql = sql.replace(regex, `FROM $1$2$3 $5`).trim();
   return [plainSql, expr];
 }
 

@@ -6,7 +6,7 @@
   "dependencies": {
     "@aws-sdk/client-glue": "^3.1.0",
     "@aws-sdk/client-s3": "^3.1.0",
-    "@dforsber/s3-selectable": "^1.0.0"
+    "@dforsber/s3-selectable": "../"
   },
   "devDependencies": {
     "@aws-sdk/types": "3.1.0",

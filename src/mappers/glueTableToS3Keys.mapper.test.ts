@@ -173,6 +173,7 @@ describe("When fetching partitioning information", () => {
         "Bucket": "dummy-test-bucket",
         "InputSerialization": Object {
           "CSV": Object {},
+          "CompressionType": "GZIP",
         },
         "PartitionColumns": Array [],
       }
@@ -183,6 +184,7 @@ describe("When fetching partitioning information", () => {
         "Bucket": "dummy-test-bucket",
         "InputSerialization": Object {
           "CSV": Object {},
+          "CompressionType": "GZIP",
         },
         "PartitionColumns": Array [],
       }
@@ -211,7 +213,9 @@ describe("When fetching partitioning information", () => {
       Object {
         "Bucket": "dummy-test-bucket",
         "InputSerialization": Object {
-          "JSON": Object {},
+          "JSON": Object {
+            "Type": "DOCUMENT",
+          },
         },
         "PartitionColumns": Array [],
       }
@@ -221,7 +225,9 @@ describe("When fetching partitioning information", () => {
       Object {
         "Bucket": "dummy-test-bucket",
         "InputSerialization": Object {
-          "JSON": Object {},
+          "JSON": Object {
+            "Type": "DOCUMENT",
+          },
         },
         "PartitionColumns": Array [],
       }

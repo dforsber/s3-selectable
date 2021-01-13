@@ -56,6 +56,8 @@ export class S3Selectable {
   ): Promise<stream> {
     await this.cacheTableMetadata();
     if (!params.Expression) throw new Error("S3 Select params Expression is required");
+    if (params.ExpressionType && params.ExpressionType !== "SQL")
+      throw new Error("S3 Select ExpressionType must be SQL");
     const whereSql = getSQLWhereString(params.Expression, this.partitionColumns);
     const filteredPartitionValues = await this.partitionsFilter.filterPartitions(whereSql);
     const s3Keys = await this.mapper.getKeysByPartitions(filteredPartitionValues);
