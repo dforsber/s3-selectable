@@ -18,8 +18,8 @@ const { S3Selectable } = require("@dforsber/s3-selectable");
 const region = { region: "eu-west-1" };
 
 async function main() {
-  // NOTE: Instantiation of the class will start querying AWS Glue and S3 to
-  //       fetch all S3 Object Keys that corresponds with the Glue Table data.
+  // NOTE: Instantiation of the class starts querying AWS Glue and S3 to
+  //       fetch all S3 Object Keys that corresponds with the Glue Table.
   const selectable = new S3Selectable({
     s3: new S3(region),
     glue: new Glue(region),
@@ -28,8 +28,8 @@ async function main() {
   });
 
   const onData = chunk => {
-    const data = Buffer.from((chunk.Records || {}).Payload || "").toString();
-    process.stdout.write(data);
+    const payload = (chunk.Records || {}).Payload || "";
+    process.stdout.write(Buffer.from(payload).toString());
   };
 
   const onEnd = () => console.log("Stream end");
@@ -38,7 +38,7 @@ async function main() {
     // Bucket: "",                        // optional and not used
     // Key: "",                           // optional and not used
     // ExpressionType: "SQL",             // defaults to SQL
-    // InputSerialization: { CSV: {},     // some rudimentary autodetection
+    // InputSerialization: { CSV: {},     // some rudimentary detection
     //   CompressionType: "GZIP" },       //  from Glue Table metadata
     // OutputSerialization: { JSON: {} }, // defaults to JSON
     Expression: "SELECT * FROM s3Object LIMIT 2",
@@ -53,9 +53,9 @@ main().catch(err => console.log(err));
 
 [AWS S3 Select](https://docs.aws.amazon.com/AmazonS3/latest/API/API_SelectObjectContent.html) is a filtering stream over S3 Objects, where filtering is defined with SQL syntax. Glue Tables are metadata about structured data on S3 that can point to hundreds of different S3 Objects in separate Hive Partitions and Hive Buckets.
 
-S3 Select doesn't understand anything about Glue Tables, but it supports high parallelism. This module provides the same `S3.selectObjectContent` method in the `s3Selectable` class, but makes `Bucket` and `Key` optional as those are read from the Glue Table itself. For each S3 Object in the Glue Table data location and partitions, it launches S3 Select and returns a single stream as merged stream of all the concurrent S3 Select calls.
+S3 Select doesn't understand anything about Glue Tables, but it supports high parallelism. This module provides the same `S3.selectObjectContent` method in the `S3Selectable` class, but makes `Bucket` and `Key` optional as those are read from the Glue Table itself. For each S3 Object in the Glue Table data location and partitions, it launches S3 Select and returns a single stream as merged stream of all the concurrent S3 Select calls.
 
-When the class `s3Selectable` is instantiated it triggers AWS API calls for fetching table metadata and getting all S3 Keys for the table data. You can then issue multiple S3 Select calls over the same table, while the metadata is in-memory.
+When the class `S3Selectable` is instantiated it triggers AWS API calls for fetching table metadata and getting all S3 Keys for the table data. You can then issue multiple S3 Select calls over the same table, while the metadata is in-memory.
 
 ### Usage with Lambda
 
@@ -96,6 +96,8 @@ If the Glue Table is sorted, partitioned and/or bucketed into a proper sized S3 
 - `sqlite3` is used to pre-filter partitions. SQLite could be used to add support for regular expression based partition filtering, which are not supported by S3 SELECT. In general, SQLite could be used to do stream post-filtering to allow taking benefit of all SQLite features (like regexps).
 
 ### Known issues
+
+- Stream 'end' event is currently going through from all the S3 Select streams, thus, the merged stream gets multiple 'end' events, one for each Parquet file
 
 - The response data is a combination of response data from all the parallal s3 select calls. Thus, e.g. `LIMIT 10`, will apply to all individual calls. Similarly, if you s3 select sorted table the results will not be sorted as the individual streams are combined as they send data. For the same reason, the merged stream may have multiple events of the same type (like "end") as the source consists of multiple independent streams.
 

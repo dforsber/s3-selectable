@@ -15,8 +15,8 @@ async function main() {
   });
 
   const onData = chunk => {
-    const data = Buffer.from((chunk.Records || {}).Payload || "").toString();
-    process.stdout.write(data);
+    const payload = (chunk.Records || {}).Payload || "";
+    process.stdout.write(Buffer.from(payload).toString());
   };
 
   const onEnd = () => console.log("Stream end");
