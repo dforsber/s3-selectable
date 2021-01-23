@@ -17,9 +17,14 @@ const { S3Selectable } = require("@dforsber/s3-selectable");
 
 const region = { region: "eu-west-1" };
 
+function writeDataOut(chunk) {
+  const dataObj = JSON.parse(Buffer.from(chunk).toString());
+  console.log(`${dataObj._1}${dataObj._2}`);
+}
+
 async function main() {
-  // NOTE: Instantiation of the class starts querying AWS Glue and S3 to
-  //       fetch all S3 Object Keys that corresponds with the Glue Table.
+  // NOTE: Instantiation of the class will start querying AWS Glue and S3 to
+  //       fetch all S3 Object Keys that corresponds with the Glue Table data.
   const selectable = new S3Selectable({
     s3: new S3(region),
     glue: new Glue(region),
@@ -27,26 +32,30 @@ async function main() {
     tableName: "partitioned_elb_logs",
   });
 
-  const onData = chunk => {
-    const payload = (chunk.Records || {}).Payload || "";
-    process.stdout.write(Buffer.from(payload).toString());
-  };
-
-  const onEnd = () => console.log("Stream end");
-
   const selectParams = {
     // Bucket: "",                        // optional and not used
     // Key: "",                           // optional and not used
     // ExpressionType: "SQL",             // defaults to SQL
-    // InputSerialization: { CSV: {},     // some rudimentary detection
+    // InputSerialization: { CSV: {},     // some rudimentary autodetection
     //   CompressionType: "GZIP" },       //  from Glue Table metadata
     // OutputSerialization: { JSON: {} }, // defaults to JSON
-    Expression: "SELECT * FROM s3Object LIMIT 2",
+    Expression: "SELECT * FROM s3Object LIMIT 1",
   };
-  await selectable.selectObjectContent(selectParams, onData, onEnd);
+
+  // NOTE: Returns Promise that resolves to the stream handle
+  //return selectable.selectObjectContent(selectParams, onData, onEnd);
+
+  // NOTE: Returns Promise that resolves only when stream ends
+  return new Promise(resolve => selectable.selectObjectContent(selectParams, writeDataOut, resolve));
 }
 
-main().catch(err => console.log(err));
+(async () => {
+  console.log("Running example");
+  await main();
+  console.log("Example finished");
+})().catch(e => {
+  console.log(e);
+});
 ```
 
 ## Single S3 Select stream over multiple files
@@ -97,9 +106,7 @@ If the Glue Table is sorted, partitioned and/or bucketed into a proper sized S3 
 
 ### Known issues
 
-- Stream 'end' event is currently going through from all the S3 Select streams, thus, the merged stream gets multiple 'end' events, one for each Parquet file
-
-- The response data is a combination of response data from all the parallal s3 select calls. Thus, e.g. `LIMIT 10`, will apply to all individual calls. Similarly, if you s3 select sorted table the results will not be sorted as the individual streams are combined as they send data. For the same reason, the merged stream may have multiple events of the same type (like "end") as the source consists of multiple independent streams.
+- The response data is a combination of response data from all the parallal s3 select calls. Thus, e.g. `LIMIT 10`, will apply to all individual calls. Similarly, if you s3 select sorted table the results will not be sorted as the individual streams are combined as they send data. For the same reason, the merged stream may have multiple control plane events of the same type as the source consists of multiple independent streams.
 
 - S3 select supports [scan range](https://docs.aws.amazon.com/AmazonS3/latest/API/API_SelectObjectContent.html#AmazonS3-SelectObjectContent-request-ScanRange), so it is possible to parallalize multiple S3 Selects against single S3 Object. Using scan range is good for row based formats like CSV and JSON. This module does not use scan ranges as it is mainly targeted for Parquet file use cases ("indexed big data").
 

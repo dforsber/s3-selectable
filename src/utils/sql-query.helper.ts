@@ -93,6 +93,13 @@ export function getSQLWhereStringFromAST(where: AST): string {
     .substring(25);
 }
 
+export function getSQLLimit(sql: string): number {
+  const [plainSql] = getPlainSQLAndExpr(sql);
+  const found = plainSql.match(/LIMIT\s+(\d+)/im);
+  if (found) return parseInt(found.pop() ?? "0");
+  return 0;
+}
+
 export function getSQLWhereString(expression: string, partitionColumns: string[]): string {
   return getSQLWhereStringFromAST(makePartitionSpecificAST(getSQLWhereAST(expression), partitionColumns));
 }

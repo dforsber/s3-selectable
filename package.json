@@ -29,6 +29,8 @@
     "lint:fix": "yarn lint --quiet --fix",
     "lint:watch": "npx onchange 'src/**/*.ts' -- yarn lint",
     "test": "jest",
+    "preupdate-integration": "yarn build",
+    "update-integration": "cp -r dist/* integration-tests/node_modules/@dforsber/s3-selectable/dist/",
     "test:watch": "yarn test -- --watchAll",
     "test:badges": "npx jest-coverage-badges output ./badges",
     "clean": "rimraf dist/ node_modules/ coverage/"

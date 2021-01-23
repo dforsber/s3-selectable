@@ -1,8 +1,11 @@
 {
   "name": "s3-selectable-integration-tests",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "main": "example.js",
   "license": "MIT",
+  "scripts": {
+    "test": "node example.js && ts-node example.ts"
+  },
   "dependencies": {
     "@aws-sdk/client-glue": "^3.1.0",
     "@aws-sdk/client-s3": "^3.1.0",

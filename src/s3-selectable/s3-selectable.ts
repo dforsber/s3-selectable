@@ -20,6 +20,13 @@ export type TS3SelectableParams = PartialBy<
   "Bucket" | "Key" | "ExpressionType" | "OutputSerialization" | "InputSerialization"
 >;
 
+export type TS3SelectableParamsVerified = PartialBy<SelectObjectContentCommandInput, "Bucket" | "Key"> & {
+  Expression: string;
+  ExpressionType: string;
+};
+
+type TEvents = SelectObjectContentEventStream;
+
 const defaults = {
   ExpressionType: "SQL",
   OutputSerialization: { JSON: {} },
@@ -33,16 +40,14 @@ export interface IS3Selectable {
 }
 
 export class S3Selectable {
-  private s3 = this.params.s3;
-  private glue = this.params.glue;
   private partitionValues!: string[];
   private partitionColumns!: string[];
   private inputSerialisation!: InputSerialization | undefined;
   private s3bucket!: string;
   private partitionsFilter!: PartitionPreFilter;
   private mapper = new GlueTableToS3Key({
-    s3: this.s3,
-    glue: this.glue,
+    s3: this.params.s3,
+    glue: this.params.glue,
     databaseName: this.params.databaseName,
     tableName: this.params.tableName,
   });
@@ -50,35 +55,46 @@ export class S3Selectable {
   constructor(private params: IS3Selectable) {}
 
   public async selectObjectContent(
-    params: TS3SelectableParams,
-    onDataHandler?: (event: SelectObjectContentEventStream.RecordsMember) => void,
-    onEndHandler?: (event: SelectObjectContentEventStream.RecordsMember) => void,
+    paramsInc: TS3SelectableParams,
+    onDataHandler?: (event: Uint8Array) => void,
+    onEndHandler?: () => void,
   ): Promise<stream> {
     await this.cacheTableMetadata();
-    if (!params.Expression) throw new Error("S3 Select params Expression is required");
-    if (params.ExpressionType && params.ExpressionType !== "SQL")
-      throw new Error("S3 Select ExpressionType must be SQL");
+    const params = this.getValidParams(paramsInc);
     const whereSql = getSQLWhereString(params.Expression, this.partitionColumns);
     const filteredPartitionValues = await this.partitionsFilter.filterPartitions(whereSql);
     const s3Keys = await this.mapper.getKeysByPartitions(filteredPartitionValues);
-    const mergedParams = { ...defaults, InputSerialization: this.inputSerialisation, ...params };
-    const selectStreams = await Promise.all(
-      s3Keys.map((Key: string) => this.getSelectStream({ ...mergedParams, Key }, onDataHandler, onEndHandler)),
+    const merged = mergeStream(
+      await Promise.all(s3Keys.map((Key: string) => this.getSelectStream({ ...params, Key }))),
     );
-    return mergeStream(selectStreams);
+    if (onDataHandler) merged.on("data", this.getDataHandler(onDataHandler));
+    if (onEndHandler) merged.on("end", onEndHandler);
+    return merged;
   }
 
-  private async getSelectStream(
-    queryParams: PartialBy<SelectObjectContentCommandInput, "Bucket">,
-    onDataHandler?: (event: SelectObjectContentEventStream.RecordsMember) => void,
-    onEndHandler?: (event: SelectObjectContentEventStream.RecordsMember) => void,
-  ): Promise<Readable> {
-    const selStream = await this.s3.selectObjectContent({ ...queryParams, Bucket: this.s3bucket });
+  private getValidParams(params: TS3SelectableParams): TS3SelectableParamsVerified {
+    const merged = { ...defaults, ...params };
+    if (!merged.Expression) throw new Error("S3 Select param Expression is required");
+    if (!merged.ExpressionType || merged.ExpressionType !== "SQL")
+      throw new Error("S3 Select param ExpressionType must be SQL");
+    return {
+      ...merged,
+      Expression: merged.Expression,
+      ExpressionType: merged.ExpressionType,
+      InputSerialization: this.inputSerialisation,
+    };
+  }
+
+  private getDataHandler(onDataHandler: (data: Uint8Array) => void): (event: TEvents) => void {
+    return (event: TEvents): void => {
+      if (event.Records?.Payload) onDataHandler(event.Records.Payload);
+    };
+  }
+
+  private async getSelectStream(queryParams: PartialBy<SelectObjectContentCommandInput, "Bucket">): Promise<Readable> {
+    const selStream = await this.params.s3.selectObjectContent({ ...queryParams, Bucket: this.s3bucket });
     if (selStream.Payload === undefined) throw new Error(`No select stream for ${queryParams.Key}`);
-    const data = stream.Readable.from(selStream.Payload);
-    if (onDataHandler) data.on("data", onDataHandler);
-    if (onEndHandler) data.on("end", onEndHandler);
-    return data;
+    return stream.Readable.from(selStream.Payload, { objectMode: true });
   }
 
   /*
@@ -105,28 +121,25 @@ export class S3Selectable {
  * are run over the same table and in cases where the class can be instantiated beforehand to fill
  * up the cache.
  */
-export async function s3selectableNonClass(
-  sql: string,
-  s3: S3,
-  glue: Glue,
-  inpSer: InputSerialization = { CSV: {}, CompressionType: "GZIP" },
-  outSer: OutputSerialization = { JSON: {} },
-): Promise<string[]> {
-  const [databaseName, tableName, expr] = getTableAndDbAndExpr(sql);
-  const Expression = sql.replace(`${databaseName}.${tableName}`, `s3Object${expr}`);
+export interface IS3selectableNonClass {
+  sql: string;
+  s3: S3;
+  glue: Glue;
+  InputSerialization?: InputSerialization;
+  OutputSerialization?: OutputSerialization;
+}
+export async function s3selectableNonClass(params: IS3selectableNonClass): Promise<Uint8Array[]> {
+  const { s3, glue } = params;
+  const [databaseName, tableName, expr] = getTableAndDbAndExpr(params.sql);
+  const Expression = params.sql.replace(`${databaseName}.${tableName}`, `s3Object${expr}`);
   const selectable = new S3Selectable({ databaseName, tableName, s3, glue });
-  const rowsStream = await selectable.selectObjectContent({
-    Expression,
-    ExpressionType: "SQL",
-    InputSerialization: inpSer,
-    OutputSerialization: outSer,
-  });
-  const data: string[] = await new Promise(resolve => {
-    const rows: string[] = [];
-    rowsStream.on("data", chunk => {
-      if (chunk.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
-    });
-    rowsStream.on("end", () => resolve(rows));
+  const data: Uint8Array[] = await new Promise(resolve => {
+    const chunks: Uint8Array[] = [];
+    selectable.selectObjectContent(
+      { ...params, Expression },
+      chunk => chunks.push(chunk),
+      () => resolve(chunks),
+    );
   });
   return data;
 }

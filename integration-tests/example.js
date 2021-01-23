@@ -4,6 +4,11 @@ const { S3Selectable } = require("@dforsber/s3-selectable");
 
 const region = { region: "eu-west-1" };
 
+function writeDataOut(chunk) {
+  const dataObj = JSON.parse(Buffer.from(chunk).toString());
+  console.log(`${dataObj._1}${dataObj._2}`);
+}
+
 async function main() {
   // NOTE: Instantiation of the class will start querying AWS Glue and S3 to
   //       fetch all S3 Object Keys that corresponds with the Glue Table data.
@@ -14,13 +19,6 @@ async function main() {
     tableName: "partitioned_elb_logs",
   });
 
-  const onData = chunk => {
-    const payload = (chunk.Records || {}).Payload || "";
-    process.stdout.write(Buffer.from(payload).toString());
-  };
-
-  const onEnd = () => console.log("Stream end");
-
   const selectParams = {
     // Bucket: "",                        // optional and not used
     // Key: "",                           // optional and not used
@@ -28,9 +26,20 @@ async function main() {
     // InputSerialization: { CSV: {},     // some rudimentary autodetection
     //   CompressionType: "GZIP" },       //  from Glue Table metadata
     // OutputSerialization: { JSON: {} }, // defaults to JSON
-    Expression: "SELECT * FROM s3Object LIMIT 2",
+    Expression: "SELECT * FROM s3Object LIMIT 1",
   };
-  await selectable.selectObjectContent(selectParams, onData, onEnd);
+
+  // NOTE: Returns Promise that resolves to the stream handle
+  //return selectable.selectObjectContent(selectParams, onData, onEnd);
+
+  // NOTE: Returns Promise that resolves only when stream ends
+  return new Promise(resolve => selectable.selectObjectContent(selectParams, writeDataOut, resolve));
 }
 
-main().catch(err => console.log(err));
+(async () => {
+  console.log("Running example");
+  await main();
+  console.log("Example finished");
+})().catch(e => {
+  console.log(e);
+});

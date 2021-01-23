@@ -1,5 +1,6 @@
 import {
   getPlainSQLAndExpr,
+  getSQLLimit,
   getSQLWhereAST,
   getSQLWhereString,
   getSQLWhereStringFromAST,
@@ -289,5 +290,23 @@ describe("SQL WHERE clauses", () => {
     expect(getSQLWhereString(sql, ["year", "month", "day"])).toEqual(
       "WHERE (`year` <= 2020 AND `month` >= 2 AND TRUE) OR (`year` > 2020 AND `month` < 10) AND TRUE",
     );
+  });
+});
+
+describe("limit", () => {
+  it("can find limit", () => {
+    const sql = "SELECT * FROM s3Object LIMIT 10";
+    const expected = 10;
+    expect(getSQLLimit(sql)).toEqual(expected);
+  });
+  it("if no limit, returns 0 (disabled)", () => {
+    const sql = "SELECT * FROM s3Object";
+    const expected = 0;
+    expect(getSQLLimit(sql)).toEqual(expected);
+  });
+  it("if no limit value, returns 0 (disabled)", () => {
+    const sql = "SELECT * FROM s3Object LIMIT";
+    const expected = 0;
+    expect(getSQLLimit(sql)).toEqual(expected);
   });
 });

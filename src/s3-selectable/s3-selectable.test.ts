@@ -1,15 +1,13 @@
 import { GetPartitionsRequest, GetTableRequest } from "@aws-sdk/client-glue";
+import { IS3selectableNonClass, S3Selectable, s3selectableNonClass } from "./s3-selectable";
 import { ListObjectsV2CommandInput, S3, SelectObjectContentCommandInput } from "@aws-sdk/client-s3";
 import { Readable, ReadableOptions } from "stream";
-import { S3Selectable, s3selectableNonClass } from "./s3-selectable";
 import { testTableKeys, testTableParquet, testTablePartitions } from "../common/fixtures/glue-table";
 
 import { Glue } from "@aws-sdk/client-glue";
 
 jest.mock("@aws-sdk/client-s3");
 jest.mock("@aws-sdk/client-glue");
-
-const region = "eu-west-1";
 
 class MockedSelectStream extends Readable {
   public Payload: Readable | undefined = this;
@@ -97,10 +95,15 @@ jest.mock("@aws-sdk/client-s3", () => ({
   },
 }));
 
-const s3 = new S3({ region: "eu-west-1" });
-const glue = new Glue({ region: "eu-west-1" });
-const [databaseName, tableName] = ["default", "partitioned_and_bucketed_elb_logs_parquet"];
-const params = { glue, s3, tableName, databaseName };
+function getCommonParams(sql = ""): IS3selectableNonClass {
+  const region = { region: "eu-west-1" };
+  return { sql, s3: new S3(region), glue: new Glue(region) };
+}
+
+function getS3Selectable(): S3Selectable {
+  const [databaseName, tableName] = ["default", "partitioned_and_bucketed_elb_logs_parquet"];
+  return new S3Selectable({ ...getCommonParams(), tableName, databaseName });
+}
 
 describe("Test selectObjectContent", () => {
   beforeEach(() => {
@@ -115,7 +118,7 @@ describe("Test selectObjectContent", () => {
     const rows = await new Promise(resolve => {
       const rows: string[] = [];
       readable.on("data", chunk => {
-        if (chunk.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
+        if (chunk?.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
       });
       readable.on("end", () => resolve(rows));
     });
@@ -128,13 +131,13 @@ describe("Test selectObjectContent", () => {
     `);
   });
 
-  it("selectObjectContent throws when Expression is not SQL", async () => {
-    const selectable = new S3Selectable(params);
+  it("selectObjectContent throws when Expression is empty", async () => {
+    const selectable = getS3Selectable();
     await expect(() => selectable.selectObjectContent({ Expression: "" })).rejects.toThrowError();
   });
 
-  it("selectObjectContent throws when Expression is not SQL", async () => {
-    const selectable = new S3Selectable(params);
+  it("selectObjectContent throws when ExpressionType is not SQL", async () => {
+    const selectable = getS3Selectable();
     const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
     await expect(() =>
       selectable.selectObjectContent({ Expression: sql, ExpressionType: "PartiQL" }),
@@ -143,7 +146,7 @@ describe("Test selectObjectContent", () => {
 
   it("selectObjectContent provides correct results", async () => {
     const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
-    const selectable = new S3Selectable(params);
+    const selectable = getS3Selectable();
     await selectable.selectObjectContent({ Expression: sql });
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(1); // 1 table
@@ -189,14 +192,12 @@ describe("Test selectObjectContent", () => {
 
   it("selectObjectContent provides correct results with onDataHandler and onEndHandler", async () => {
     const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
-    const selectable = new S3Selectable(params);
+    const selectable = getS3Selectable();
     const rows = await new Promise(r => {
       const rows: string[] = [];
       selectable.selectObjectContent(
         { Expression: sql },
-        chunk => {
-          if (chunk.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
-        },
+        chunk => rows.push(Buffer.from(chunk).toString()),
         () => r(rows),
       );
     });
@@ -228,14 +229,12 @@ describe("Test selectObjectContent", () => {
 
   it("selectObjectContent provides correct results with onDataHandler and onEndHandler", async () => {
     const sql = "SELECT * FROM db.t[*] WHERE elb_response_code='302' AND ssl_protocol='-'";
-    const selectable = new S3Selectable(params);
+    const selectable = getS3Selectable();
     const rows = await new Promise(r => {
       const rows: string[] = [];
       selectable.selectObjectContent(
         { Expression: sql },
-        chunk => {
-          if (chunk.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
-        },
+        chunk => rows.push(Buffer.from(chunk).toString()),
         () => r(rows),
       );
     });
@@ -293,8 +292,8 @@ describe("Non-class based s3selectable returns correct results", () => {
   it("valid output", async () => {
     const table = "default.partitioned_and_bucketed_elb_logs_parquet";
     const sql = `SELECT * FROM ${table} WHERE elb_response_code='302' AND ssl_protocol='-'`;
-    const rows = await s3selectableNonClass(sql, new S3({ region }), new Glue({ region }));
-    expect(rows).toMatchInlineSnapshot(`
+    const rows = await s3selectableNonClass(getCommonParams(sql));
+    expect(rows.map(row => Buffer.from(row).toString())).toMatchInlineSnapshot(`
       Array [
         "{\\"id\\":1,\\"value\\":\\"test1\\"}",
         "{\\"id\\":1,\\"value\\":\\"test1\\"}",
@@ -323,7 +322,7 @@ describe("Non-class based s3selectable returns correct results", () => {
   it("no data payload", async () => {
     const table = "default.partitioned_and_bucketed_elb_logs_parquet";
     const sql = `SELECT * FROM ${table} WHERE noData='true'`;
-    const rows = await s3selectableNonClass(sql, new S3({ region: "eu-west-1" }), new Glue({ region: "eu-west-1" }));
+    const rows = await s3selectableNonClass(getCommonParams(sql));
     expect(rows).toEqual([]);
   });
 });
