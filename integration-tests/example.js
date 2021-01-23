@@ -4,9 +4,12 @@ const { S3Selectable } = require("@dforsber/s3-selectable");
 
 const region = { region: "eu-west-1" };
 
-function writeDataOut(chunk) {
-  const dataObj = JSON.parse(Buffer.from(chunk).toString());
-  console.log(`${dataObj._1}${dataObj._2}`);
+function writeDataOut(chunk, mapper = obj => JSON.stringify(obj)) {
+  Buffer.from(chunk)
+    .toString()
+    .split(/(?=\{)/gm)
+    .map(s => JSON.parse(s))
+    .map(cols => console.log(mapper(cols)));
 }
 
 async function main() {
@@ -26,14 +29,16 @@ async function main() {
     // InputSerialization: { CSV: {},     // some rudimentary autodetection
     //   CompressionType: "GZIP" },       //  from Glue Table metadata
     // OutputSerialization: { JSON: {} }, // defaults to JSON
-    Expression: "SELECT * FROM s3Object LIMIT 1",
+    Expression: "SELECT _1, _2 FROM s3Object LIMIT 42",
   };
 
   // NOTE: Returns Promise that resolves to the stream handle
   //return selectable.selectObjectContent(selectParams, onData, onEnd);
 
   // NOTE: Returns Promise that resolves only when stream ends
-  return new Promise(resolve => selectable.selectObjectContent(selectParams, writeDataOut, resolve));
+  return new Promise(resolve =>
+    selectable.selectObjectContent({ selectParams, onDataHandler: writeDataOut, onEndHandler: resolve }),
+  );
 }
 
 (async () => {

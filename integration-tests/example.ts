@@ -1,17 +1,19 @@
-import { S3Selectable, s3selectableNonClass } from "@dforsber/s3-selectable";
+import { IS3selectableNonClass, S3Selectable, s3selectableNonClass } from "@dforsber/s3-selectable";
 
 import { Glue } from "@aws-sdk/client-glue";
-import { IS3selectableNonClass } from "@dforsber/s3-selectable/dist/cjs/s3-selectable/s3-selectable";
 import { S3 } from "@aws-sdk/client-s3";
 
 function getCommonParams(sql = ""): IS3selectableNonClass {
   const region = { region: process.env.AWS_REGION ?? "eu-west-1" };
-  return { sql, s3: new S3(region), glue: new Glue(region) };
+  return { sql, s3: new S3(region), glue: new Glue(region), loglevel: "debug" };
 }
 
-function writeDataOut(chunk: Uint8Array): void {
-  const dataObj = JSON.parse(Buffer.from(chunk).toString());
-  console.log(`${dataObj._1}${dataObj._2}`);
+function writeDataOut(chunk: Uint8Array, mapper: (obj: any) => string = obj => JSON.stringify(obj)): void {
+  Buffer.from(chunk)
+    .toString()
+    .split(/(?=\{)/gm)
+    .map(s => JSON.parse(s))
+    .map(cols => console.log(mapper(cols)));
 }
 
 async function classBasedExample(): Promise<void> {
@@ -19,19 +21,26 @@ async function classBasedExample(): Promise<void> {
     ...getCommonParams(),
     databaseName: process.env.DATABASE_NAME ?? "default",
     tableName: process.env.TABLE_NAME ?? "partitioned_elb_logs",
+    logLevel: "debug",
   });
 
   // Returns only when the stream ends
   await new Promise<void>(resolve =>
-    selectable.selectObjectContent({ Expression: "SELECT * FROM S3Object LIMIT 1" }, writeDataOut, resolve),
+    selectable.selectObjectContent({
+      selectParams: { Expression: "SELECT _1, _2 FROM S3Object LIMIT 42" },
+      onEventHandler: event => (!event.Records ? console.log(event) : undefined),
+      onDataHandler: writeDataOut,
+      onEndHandler: resolve,
+    }),
   );
 }
 
 async function nonClassBasedExample(): Promise<void> {
   // NOTE: Gathers the whole stream into memory and then dumps it out
-  const sql = "SELECT * FROM default.partitioned_elb_logs LIMIT 1";
+  const sql = "SELECT _1, _2 FROM default.partitioned_elb_logs LIMIT 42";
   const data = await s3selectableNonClass(getCommonParams(sql));
-  data.map(d => writeDataOut(d));
+  const concatTwoCols = obj => obj._1.concat(obj._2);
+  data.map(d => writeDataOut(d, concatTwoCols));
 }
 
 console.log("Class based example: START");

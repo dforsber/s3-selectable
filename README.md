@@ -4,7 +4,11 @@
 [![codecov](https://codecov.io/gh/dforsber/s3-selectable/branch/master/graph/badge.svg)](https://codecov.io/gh/dforsber/s3-selectable)
 ![BuiltBy](https://img.shields.io/badge/TypeScript-Lovers-black.svg "img.shields.io")
 
-This module runs parallel [S3 Select](https://aws.amazon.com/blogs/developer/introducing-support-for-amazon-s3-select-in-the-aws-sdk-for-javascript/) over all the S3 Keys of a [Glue Table](https://docs.aws.amazon.com/glue/latest/dg/tables-described.html) and returns a single [merged event stream](https://github.com/grncdr/merge-stream). The API is the same as for [S3 Select NodeJS SDK (`S3.selectObjectContent`)](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#selectObjectContent-property), i.e. params are passed through, but `Bucket` and `Key` are replaced from values for the Glue Table S3 Data. Additionally, `ExpressionType` is optional and defaults to `SQL`, `InputSerialization` is deducted from Glue Table serde if not provided, and `OutputSerialization` defaults to `JSON`.
+This module runs parallel [S3 Select](https://aws.amazon.com/blogs/developer/introducing-support-for-amazon-s3-select-in-the-aws-sdk-for-javascript/) over all the S3 Keys of a [Glue Table](https://docs.aws.amazon.com/glue/latest/dg/tables-described.html) and returns a single [merged event stream](https://github.com/grncdr/merge-stream). The API with parameter `selectParams` is the same as for [S3 Select NodeJS SDK (`S3.selectObjectContent`)](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#selectObjectContent-property), i.e. params are passed through, but `Bucket` and `Key` are replaced from values for the Glue Table S3 Data. Additionally, `ExpressionType` is optional and defaults to `SQL`, `InputSerialization` is deducted from Glue Table serde if not provided, and `OutputSerialization` defaults to `JSON`.
+
+Additional optional parameters include `onEventHandler()`, `onDataHandler()`, and `onEndHandler()`. `onEventHandler()` is called for every S3 SELECT stream event (like `End`, `Status` etc). `onDataHandler()` is called only for data (`Records.Payload`) in `Uint8Array` format. `onEndHandler()` is called once, once the merged stream ends, which makes it easier to e.g. resolve Promise as in the example below.
+
+SQL `LIMIT N` is supported and only `N` resulting objects are passed back for the `onDataHandler()`. If the number of S3 Keys is more than `N`, only the `N` S3 Keys are used with actual SQL `LIMIT 1`. If the limit `N` is larger than the number of S3 Keys, then `LIMIT <ceil(limit/s3Keys)>` is used. This reduces the streaming/scanning of data.
 
 ```shell
 yarn add @dforsber/s3-selectable
@@ -17,9 +21,12 @@ const { S3Selectable } = require("@dforsber/s3-selectable");
 
 const region = { region: "eu-west-1" };
 
-function writeDataOut(chunk) {
-  const dataObj = JSON.parse(Buffer.from(chunk).toString());
-  console.log(`${dataObj._1}${dataObj._2}`);
+function writeDataOut(chunk, mapper = obj => JSON.stringify(obj)) {
+  Buffer.from(chunk)
+    .toString()
+    .split(/(?=\{)/gm)
+    .map(s => JSON.parse(s))
+    .map(cols => console.log(mapper(cols)));
 }
 
 async function main() {
@@ -39,14 +46,16 @@ async function main() {
     // InputSerialization: { CSV: {},     // some rudimentary autodetection
     //   CompressionType: "GZIP" },       //  from Glue Table metadata
     // OutputSerialization: { JSON: {} }, // defaults to JSON
-    Expression: "SELECT * FROM s3Object LIMIT 1",
+    Expression: "SELECT _1, _2 FROM s3Object LIMIT 42",
   };
 
   // NOTE: Returns Promise that resolves to the stream handle
   //return selectable.selectObjectContent(selectParams, onData, onEnd);
 
   // NOTE: Returns Promise that resolves only when stream ends
-  return new Promise(resolve => selectable.selectObjectContent(selectParams, writeDataOut, resolve));
+  return new Promise(resolve =>
+    selectable.selectObjectContent({ selectParams, onDataHandler: writeDataOut, onEndHandler: resolve }),
+  );
 }
 
 (async () => {
@@ -106,7 +115,7 @@ If the Glue Table is sorted, partitioned and/or bucketed into a proper sized S3 
 
 ### Known issues
 
-- The response data is a combination of response data from all the parallal s3 select calls. Thus, e.g. `LIMIT 10`, will apply to all individual calls. Similarly, if you s3 select sorted table the results will not be sorted as the individual streams are combined as they send data. For the same reason, the merged stream may have multiple control plane events of the same type as the source consists of multiple independent streams.
+- The response data is a combination of response data from all the parallal s3 select calls. If you s3 select sorted table the results will not be sorted as the individual streams are combined as they send data. For the same reason, the merged stream may have multiple control plane events of the same type as the source consists of multiple independent streams. Thus, use the `onDataHandler()` and `onEndHandler()`. Use `onEventHandler()` if you're interested on other events and are ready to parse them for all streams.
 
 - S3 select supports [scan range](https://docs.aws.amazon.com/AmazonS3/latest/API/API_SelectObjectContent.html#AmazonS3-SelectObjectContent-request-ScanRange), so it is possible to parallalize multiple S3 Selects against single S3 Object. Using scan range is good for row based formats like CSV and JSON. This module does not use scan ranges as it is mainly targeted for Parquet file use cases ("indexed big data").
 

@@ -1,8 +1,8 @@
 import { errors } from "../common/errors.enum";
 import { GetPartitionsRequest, Partition, StorageDescriptor, Table } from "@aws-sdk/client-glue";
-import { IS3Selectable, PartialBy } from "../s3-selectable/s3-selectable";
 import { S3KeysCache } from "../utils/s3KeysCache";
 import { InputSerialization } from "@aws-sdk/client-s3";
+import { IS3Selectable, PartialBy } from "../s3-selectable/types";
 
 export interface ITableInfo {
   Bucket: string;
