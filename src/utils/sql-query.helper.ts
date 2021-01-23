@@ -100,6 +100,10 @@ export function getSQLLimit(sql: string): number {
   return 0;
 }
 
+export function setSQLLimit(sql: string, limit: number): string {
+  return getPlainSQLAndExpr(sql)[0].replace(/LIMIT\s+(\d+)/im, () => `LIMIT ${limit}`);
+}
+
 export function getSQLWhereString(expression: string, partitionColumns: string[]): string {
   return getSQLWhereStringFromAST(makePartitionSpecificAST(getSQLWhereAST(expression), partitionColumns));
 }
