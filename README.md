@@ -6,13 +6,24 @@
 
 This module runs parallel [S3 Select](https://aws.amazon.com/blogs/developer/introducing-support-for-amazon-s3-select-in-the-aws-sdk-for-javascript/) over all the S3 Keys of a [Glue Table](https://docs.aws.amazon.com/glue/latest/dg/tables-described.html) and returns a single [merged event stream](https://github.com/grncdr/merge-stream). The API with parameter `selectParams` is the same as for [S3 Select NodeJS SDK (`S3.selectObjectContent`)](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#selectObjectContent-property), i.e. params are passed through, but `Bucket` and `Key` are replaced from values for the Glue Table S3 Data. Additionally, `ExpressionType` is optional and defaults to `SQL`, `InputSerialization` is deducted from Glue Table serde if not provided, and `OutputSerialization` defaults to `JSON`.
 
-Additional optional parameters include `onEventHandler()`, `onDataHandler()`, and `onEndHandler()`. `onEventHandler()` is called for every S3 SELECT stream event (like `End`, `Status` etc). `onDataHandler()` is called only for data (`Records.Payload`) in `Uint8Array` format. `onEndHandler()` is called once, once the merged stream ends, which makes it easier to e.g. resolve Promise as in the example below.
+Additional optional parameters include `onEventHandler()`, `onDataHandler()`, and `onEndHandler()`. `onEventHandler()` is called for every S3 SELECT stream event (like `End`, `Status` etc). `onDataHandler()` is called only for data (`Records.Payload`) in `Uint8Array` format. `onEndHandler()` is called once, once the merged stream ends, which makes it easier to e.g. resolve Promise as in the example below. For now, `onEventHandler()` is provided for convenience if you don't want to tap to the merged stream directly.
+
+```javascript
+export interface ISelectObjectContent {
+  selectParams: TS3SelectaParams;
+  onEventHandler?: (event: TEvents) => void;
+  onDataHandler?: (event: Uint8Array) => void;
+  onEndHandler?: () => void;
+}
+```
 
 SQL `LIMIT N` is supported and only `N` resulting objects are passed back for the `onDataHandler()`. If the number of S3 Keys is more than `N`, only the `N` S3 Keys are used with actual SQL `LIMIT 1`. If the limit `N` is larger than the number of S3 Keys, then `LIMIT <ceil(limit/s3Keys)>` is used. This reduces the streaming/scanning of data.
 
 ```shell
 yarn add @dforsber/s3-selectable
 ```
+
+[Javascript example](integration-tests/example.js) below. [Typescript example](integration-tests/example.ts) also in the repo.
 
 ```javascript
 const { S3 } = require("@aws-sdk/client-s3");
@@ -50,11 +61,15 @@ async function main() {
   };
 
   // NOTE: Returns Promise that resolves to the stream handle
-  //return selectable.selectObjectContent(selectParams, onData, onEnd);
+  //return selectable.select(selectParams, onData, onEnd);
 
   // NOTE: Returns Promise that resolves only when stream ends
   return new Promise(resolve =>
-    selectable.selectObjectContent({ selectParams, onDataHandler: writeDataOut, onEndHandler: resolve }),
+    selectable.select({
+      selectParams,
+      onDataHandler: writeDataOut,
+      onEndHandler: resolve,
+    }),
   );
 }
 
@@ -111,14 +126,14 @@ If the Glue Table is sorted, partitioned and/or bucketed into a proper sized S3 
 
 - Use scan range for row based file formats to improve performance
 
-- `sqlite3` is used to pre-filter partitions. SQLite could be used to add support for regular expression based partition filtering, which are not supported by S3 SELECT. In general, SQLite could be used to do stream post-filtering to allow taking benefit of all SQLite features (like regexps).
-
-### Known issues
-
-- The response data is a combination of response data from all the parallal s3 select calls. If you s3 select sorted table the results will not be sorted as the individual streams are combined as they send data. For the same reason, the merged stream may have multiple control plane events of the same type as the source consists of multiple independent streams. Thus, use the `onDataHandler()` and `onEndHandler()`. Use `onEventHandler()` if you're interested on other events and are ready to parse them for all streams.
+- `sqlite3` is used to pre-filter partitions. In general, SQLite could be used to do stream post-filtering to allow taking benefit of all SQLite features (like regexps). However, this is closer to reading data directly from S3 without S3 Select. The benefit with S3 Select is that it can filter out vast amounts of data for you in parallel and thus does not congest your IO.
 
 - S3 select supports [scan range](https://docs.aws.amazon.com/AmazonS3/latest/API/API_SelectObjectContent.html#AmazonS3-SelectObjectContent-request-ScanRange), so it is possible to parallalize multiple S3 Selects against single S3 Object. Using scan range is good for row based formats like CSV and JSON. This module does not use scan ranges as it is mainly targeted for Parquet file use cases ("indexed big data").
 
-- Please note that the [maximum uncompressed row group size is 256MB for Parquet](https://docs.aws.amazon.com/AmazonS3/latest/dev/selecting-content-from-objects.html) files with S3 Select, so you have to partition and bucket your big data accordingly.
+### Known issues
+
+- The response data is a combination of response data from all the parallal s3 select calls. If you s3 select sorted table the results will not be sorted as the individual streams are combined as they send data. For the same reason, the merged stream may have multiple control plane events of the same type as the source consists of multiple independent streams. Thus, use the `onDataHandler()` and `onEndHandler()`.
+
+- Please note that the [maximum uncompressed row group size is 256MB for Parquet](https://docs.aws.amazon.com/AmazonS3/latest/dev/selecting-content-from-objects.html) files with S3 Select.
 
 - S3 Select does not support `Map<>` columns with Parquet files. Thus, instead of e.g. doing "SELECT \* FROM", select columns explicitly and do not include columns with `Map<>` types.

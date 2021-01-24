@@ -26,7 +26,7 @@ async function classBasedExample(): Promise<void> {
 
   // Returns only when the stream ends
   await new Promise<void>(resolve =>
-    selectable.selectObjectContent({
+    selectable.select({
       selectParams: { Expression: "SELECT _1, _2 FROM S3Object LIMIT 42" },
       onEventHandler: event => (!event.Records ? console.log(event) : undefined),
       onDataHandler: writeDataOut,

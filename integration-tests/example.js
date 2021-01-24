@@ -33,11 +33,15 @@ async function main() {
   };
 
   // NOTE: Returns Promise that resolves to the stream handle
-  //return selectable.selectObjectContent(selectParams, onData, onEnd);
+  //return selectable.select(selectParams, onData, onEnd);
 
   // NOTE: Returns Promise that resolves only when stream ends
   return new Promise(resolve =>
-    selectable.selectObjectContent({ selectParams, onDataHandler: writeDataOut, onEndHandler: resolve }),
+    selectable.select({
+      selectParams,
+      onDataHandler: writeDataOut,
+      onEndHandler: resolve,
+    }),
   );
 }
 

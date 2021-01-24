@@ -4,9 +4,9 @@ import {
   ISelectObjectContent,
   PartialBy,
   TEvents,
+  TS3SelectaParams,
   TS3electObjectContentVerified,
   TSelectParamsVerified,
-  TSelectaParams,
   defaultS3SelectParms,
 } from "./types";
 import { InputSerialization, SelectObjectContentCommandInput } from "@aws-sdk/client-s3";
@@ -34,7 +34,7 @@ export class S3Selectable {
 
   constructor(private props: IS3Selectable) {}
 
-  public async selectObjectContent(params: ISelectObjectContent): Promise<stream> {
+  public async select(params: ISelectObjectContent): Promise<stream> {
     await this.cacheTableMetadata();
     const selectParamsVerified = this.getValidS3SelectParams(params.selectParams);
     const limit = getSQLLimit(selectParamsVerified.Expression);
@@ -67,7 +67,7 @@ export class S3Selectable {
     return this.partitionsFilter.filterPartitions(whereSql);
   }
 
-  private getValidS3SelectParams(params: TSelectaParams): TSelectParamsVerified {
+  private getValidS3SelectParams(params: TS3SelectaParams): TSelectParamsVerified {
     const merged = { ...defaultS3SelectParms, ...params };
     if (!merged.Expression) throw new Error("S3 Select param Expression is required");
     if (merged.ExpressionType !== "SQL") {
@@ -138,7 +138,7 @@ export async function s3selectableNonClass(params: IS3selectableNonClass): Promi
   const selectable = new S3Selectable({ databaseName, tableName, s3, glue });
   const data: Uint8Array[] = await new Promise(resolve => {
     const chunks: Uint8Array[] = [];
-    selectable.selectObjectContent({
+    selectable.select({
       selectParams: { ...params, Expression },
       onDataHandler: chunk => chunks.push(chunk),
       onEndHandler: () => resolve(chunks),

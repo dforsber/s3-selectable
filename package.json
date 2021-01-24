@@ -30,7 +30,7 @@
     "lint:watch": "npx onchange 'src/**/*.ts' -- yarn lint",
     "test": "jest",
     "preupdate-integration": "yarn build",
-    "update-integration": "cp -r src dist integration-tests/node_modules/@dforsber/s3-selectable/",
+    "update-integration": "rsync -av --exclude integration-tests . integration-tests/node_modules/@dforsber/s3-selectable/",
     "test:watch": "yarn test -- --watchAll",
     "test:badges": "npx jest-coverage-badges output ./badges",
     "clean": "rimraf dist/ node_modules/ coverage/"

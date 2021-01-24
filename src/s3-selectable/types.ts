@@ -11,7 +11,7 @@ import { LogLevel } from "bunyan";
 
 export type PartialBy<TType, TKey extends keyof TType> = Omit<TType, TKey> & Partial<Pick<TType, TKey>>;
 
-export type TSelectaParams = PartialBy<
+export type TS3SelectaParams = PartialBy<
   SelectObjectContentCommandInput,
   "Bucket" | "Key" | "ExpressionType" | "OutputSerialization" | "InputSerialization"
 >;
@@ -41,7 +41,7 @@ export interface IS3Selectable {
 }
 
 export interface ISelectObjectContent {
-  selectParams: TSelectaParams;
+  selectParams: TS3SelectaParams;
   onEventHandler?: (event: TEvents) => void;
   onDataHandler?: (event: Uint8Array) => void;
   onEndHandler?: () => void;
