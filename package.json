@@ -1,6 +1,6 @@
 {
   "name": "@dforsber/s3-selectable",
-  "version": "1.1.1",
+  "version": "2.0.0",
   "description": "S3 Select over Glue Table",
   "main": "dist/cjs/index.js",
   "types": "dist/cjs/index.d.ts",
@@ -29,6 +29,8 @@
     "lint:fix": "yarn lint --quiet --fix",
     "lint:watch": "npx onchange 'src/**/*.ts' -- yarn lint",
     "test": "jest",
+    "preupdate-integration": "yarn build",
+    "update-integration": "rsync -av --exclude integration-tests . integration-tests/node_modules/@dforsber/s3-selectable/",
     "test:watch": "yarn test -- --watchAll",
     "test:badges": "npx jest-coverage-badges output ./badges",
     "clean": "rimraf dist/ node_modules/ coverage/"
@@ -41,12 +43,14 @@
   "dependencies": {
     "@aws-sdk/client-glue": "^3.2.0",
     "@aws-sdk/client-s3": "^3.2.0",
+    "bunyan": "^1.8.15",
     "merge-stream": "^2.0.0",
     "node-sql-parser": "^1.11.0",
     "sqlite3": "^5.0.0"
   },
   "devDependencies": {
     "@aws-sdk/types": "3.1.0",
+    "@types/bunyan": "^1.8.6",
     "@types/jest": "^26.0.20",
     "@types/merge-stream": "^1.1.2",
     "@types/node": "^14.14.20",

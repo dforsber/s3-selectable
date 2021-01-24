@@ -1,10 +1,12 @@
 import {
   getPlainSQLAndExpr,
+  getSQLLimit,
   getSQLWhereAST,
   getSQLWhereString,
   getSQLWhereStringFromAST,
   getTableAndDbAndExpr,
   makePartitionSpecificAST,
+  setSQLLimit,
 } from "./sql-query.helper";
 
 describe("it getting db and table from SQL clause", () => {
@@ -289,5 +291,36 @@ describe("SQL WHERE clauses", () => {
     expect(getSQLWhereString(sql, ["year", "month", "day"])).toEqual(
       "WHERE (`year` <= 2020 AND `month` >= 2 AND TRUE) OR (`year` > 2020 AND `month` < 10) AND TRUE",
     );
+  });
+});
+
+describe("get limit", () => {
+  it("can find limit", () => {
+    const sql = "SELECT * FROM s3Object LIMIT 10";
+    const expected = 10;
+    expect(getSQLLimit(sql)).toEqual(expected);
+  });
+  it("if no limit, returns 0 (disabled)", () => {
+    const sql = "SELECT * FROM s3Object";
+    const expected = 0;
+    expect(getSQLLimit(sql)).toEqual(expected);
+  });
+  it("if no limit value, returns 0 (disabled)", () => {
+    const sql = "SELECT * FROM s3Object LIMIT";
+    const expected = 0;
+    expect(getSQLLimit(sql)).toEqual(expected);
+  });
+});
+
+describe("set limit", () => {
+  it("can set limit", () => {
+    const sql = "SELECT * FROM s3Object LIMIT 10";
+    const expected = "SELECT * FROM s3Object LIMIT 20";
+    expect(setSQLLimit(sql, 20)).toEqual(expected);
+  });
+  it("set lmit does nothing when no limit present", () => {
+    const sql = "SELECT * FROM s3Object";
+    const expected = "SELECT * FROM s3Object";
+    expect(setSQLLimit(sql, 20)).toEqual(expected);
   });
 });

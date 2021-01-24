@@ -1,36 +1,53 @@
-import { IS3Selectable, S3Selectable } from "@dforsber/s3-selectable";
-import { S3, SelectObjectContentEventStream } from "@aws-sdk/client-s3";
+import { IS3selectableNonClass, S3Selectable, s3selectableNonClass } from "@dforsber/s3-selectable";
 
 import { Glue } from "@aws-sdk/client-glue";
+import { S3 } from "@aws-sdk/client-s3";
 
-function writeDataOut(chunk: SelectObjectContentEventStream): void {
-  if (chunk.Records?.Payload) process.stdout.write(Buffer.from(chunk.Records?.Payload).toString());
+function getCommonParams(sql = ""): IS3selectableNonClass {
+  const region = { region: process.env.AWS_REGION ?? "eu-west-1" };
+  return { sql, s3: new S3(region), glue: new Glue(region), loglevel: "debug" };
+}
+
+function writeDataOut(chunk: Uint8Array, mapper: (obj: any) => string = obj => JSON.stringify(obj)): void {
+  Buffer.from(chunk)
+    .toString()
+    .split(/(?=\{)/gm)
+    .map(s => JSON.parse(s))
+    .map(cols => console.log(mapper(cols)));
 }
 
 async function classBasedExample(): Promise<void> {
-  console.log("Running with class interface");
-  const region = { region: process.env.AWS_REGION ?? "eu-west-1" };
-  const tableParams: IS3Selectable = {
-    s3: new S3(region),
-    glue: new Glue(region),
+  const selectable = new S3Selectable({
+    ...getCommonParams(),
     databaseName: process.env.DATABASE_NAME ?? "default",
     tableName: process.env.TABLE_NAME ?? "partitioned_elb_logs",
-  };
-  const glueTable = new S3Selectable(tableParams);
-  const selectStream = await glueTable.selectObjectContent({
-    ExpressionType: "SQL",
-    InputSerialization: { CSV: {}, CompressionType: "GZIP" },
-    OutputSerialization: { JSON: {} },
-    Expression: "SELECT * FROM S3Object LIMIT 1",
+    logLevel: "debug",
   });
-  selectStream.on("data", writeDataOut);
+
+  // Returns only when the stream ends
+  await new Promise<void>(resolve =>
+    selectable.select({
+      selectParams: { Expression: "SELECT _1, _2 FROM S3Object LIMIT 42" },
+      onEventHandler: event => (!event.Records ? console.log(event) : undefined),
+      onDataHandler: writeDataOut,
+      onEndHandler: resolve,
+    }),
+  );
 }
 
-// async function nonClassBasedExample(): Promise<void> {
-//   console.log("Running with non-class interface");
-//   const data = await s3selectable("SELECT * FROM default.partitioned_elb_logs LIMIT 1");
-//   console.log(data);
-// }
+async function nonClassBasedExample(): Promise<void> {
+  // NOTE: Gathers the whole stream into memory and then dumps it out
+  const sql = "SELECT _1, _2 FROM default.partitioned_elb_logs LIMIT 42";
+  const data = await s3selectableNonClass(getCommonParams(sql));
+  const concatTwoCols = obj => obj._1.concat(obj._2);
+  data.map(d => writeDataOut(d, concatTwoCols));
+}
 
-classBasedExample().catch(err => console.log(err));
-// nonClassBasedExample().catch(err => console.log(err));
+console.log("Class based example: START");
+classBasedExample()
+  .then(() => console.log("Class based example: DONE"))
+  .then(() => console.log("Non-class example: START"))
+  .then(() => nonClassBasedExample())
+  .then(() => console.log("Non-class example DONE"))
+  .catch(err => console.log(err))
+  .finally(() => console.log("DONE"));

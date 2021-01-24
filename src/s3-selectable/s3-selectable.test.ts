@@ -1,4 +1,5 @@
 import { GetPartitionsRequest, GetTableRequest } from "@aws-sdk/client-glue";
+import { IS3Selectable, IS3selectableNonClass, ISelectObjectContent, TS3SelectaParams } from "./types";
 import { ListObjectsV2CommandInput, S3, SelectObjectContentCommandInput } from "@aws-sdk/client-s3";
 import { Readable, ReadableOptions } from "stream";
 import { S3Selectable, s3selectableNonClass } from "./s3-selectable";
@@ -8,8 +9,6 @@ import { Glue } from "@aws-sdk/client-glue";
 
 jest.mock("@aws-sdk/client-s3");
 jest.mock("@aws-sdk/client-glue");
-
-const region = "eu-west-1";
 
 class MockedSelectStream extends Readable {
   public Payload: Readable | undefined = this;
@@ -97,10 +96,19 @@ jest.mock("@aws-sdk/client-s3", () => ({
   },
 }));
 
-const s3 = new S3({ region: "eu-west-1" });
-const glue = new Glue({ region: "eu-west-1" });
-const [databaseName, tableName] = ["default", "partitioned_and_bucketed_elb_logs_parquet"];
-const params = { glue, s3, tableName, databaseName };
+function getCommonParams(sql = ""): IS3selectableNonClass {
+  const region = { region: "eu-west-1" };
+  return { sql, s3: new S3(region), glue: new Glue(region) };
+}
+
+function getS3Selectable(params?: Partial<IS3Selectable>): S3Selectable {
+  const [databaseName, tableName] = ["default", "partitioned_and_bucketed_elb_logs_parquet"];
+  return new S3Selectable({ ...getCommonParams(), tableName, databaseName, ...params });
+}
+
+function getSimple(params: TS3SelectaParams): ISelectObjectContent {
+  return { selectParams: params };
+}
 
 describe("Test selectObjectContent", () => {
   beforeEach(() => {
@@ -115,7 +123,7 @@ describe("Test selectObjectContent", () => {
     const rows = await new Promise(resolve => {
       const rows: string[] = [];
       readable.on("data", chunk => {
-        if (chunk.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
+        if (chunk?.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
       });
       readable.on("end", () => resolve(rows));
     });
@@ -128,28 +136,28 @@ describe("Test selectObjectContent", () => {
     `);
   });
 
-  it("selectObjectContent throws when Expression is not SQL", async () => {
-    const selectable = new S3Selectable(params);
-    await expect(() => selectable.selectObjectContent({ Expression: "" })).rejects.toThrowError();
+  it("selectObjectContent throws when Expression is empty", async () => {
+    const selectable = getS3Selectable();
+    await expect(() => selectable.select(getSimple({ Expression: "" }))).rejects.toThrowError();
   });
 
-  it("selectObjectContent throws when Expression is not SQL", async () => {
-    const selectable = new S3Selectable(params);
+  it("selectObjectContent throws when ExpressionType is not SQL", async () => {
+    const selectable = getS3Selectable();
     const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
     await expect(() =>
-      selectable.selectObjectContent({ Expression: sql, ExpressionType: "PartiQL" }),
+      selectable.select(getSimple({ Expression: sql, ExpressionType: "PartiQL" })),
     ).rejects.toThrowError();
   });
 
   it("selectObjectContent provides correct results", async () => {
     const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
-    const selectable = new S3Selectable(params);
-    await selectable.selectObjectContent({ Expression: sql });
+    const selectable = getS3Selectable();
+    await selectable.select(getSimple({ Expression: sql }));
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(1); // 1 table
     expect(s3ListObjectsV2Called).toEqual(1); // 1 partition
     expect(selectObjectContent).toEqual(10); // 10 objects
-    const rowsStream = await selectable.selectObjectContent({ Expression: sql });
+    const rowsStream = await selectable.select(getSimple({ Expression: sql }));
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(1); // 1 table
     expect(s3ListObjectsV2Called).toEqual(1); // S3 Keys are cached per partition
@@ -189,16 +197,14 @@ describe("Test selectObjectContent", () => {
 
   it("selectObjectContent provides correct results with onDataHandler and onEndHandler", async () => {
     const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
-    const selectable = new S3Selectable(params);
+    const selectable = getS3Selectable();
     const rows = await new Promise(r => {
       const rows: string[] = [];
-      selectable.selectObjectContent(
-        { Expression: sql },
-        chunk => {
-          if (chunk.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
-        },
-        () => r(rows),
-      );
+      selectable.select({
+        selectParams: { Expression: sql },
+        onDataHandler: chunk => rows.push(Buffer.from(chunk).toString()),
+        onEndHandler: () => r(rows),
+      });
     });
     expect(rows).toMatchInlineSnapshot(`
       Array [
@@ -228,16 +234,72 @@ describe("Test selectObjectContent", () => {
 
   it("selectObjectContent provides correct results with onDataHandler and onEndHandler", async () => {
     const sql = "SELECT * FROM db.t[*] WHERE elb_response_code='302' AND ssl_protocol='-'";
-    const selectable = new S3Selectable(params);
+    const selectable = getS3Selectable();
     const rows = await new Promise(r => {
       const rows: string[] = [];
-      selectable.selectObjectContent(
-        { Expression: sql },
-        chunk => {
-          if (chunk.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
-        },
-        () => r(rows),
-      );
+      selectable.select({
+        selectParams: { Expression: sql },
+        onDataHandler: chunk => rows.push(Buffer.from(chunk).toString()),
+        onEndHandler: () => r(rows),
+      });
+    });
+    expect(rows).toMatchInlineSnapshot(`
+      Array [
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
+      ]
+    `);
+  });
+
+  it("selectObjectContent uses LIMIT 2 by returning only 2 rows", async () => {
+    const sql = "SELECT * FROM db.t[*] WHERE elb_response_code='302' AND ssl_protocol='-' LIMIT 2";
+    const selectable = getS3Selectable({ logLevel: "debug" });
+    const rows: string[] = await new Promise(r => {
+      const rows: string[] = [];
+      selectable.select({
+        selectParams: { Expression: sql },
+        onEventHandler: event => (!event.Records ? console.log(event) : undefined),
+        onDataHandler: chunk => rows.push(Buffer.from(chunk).toString()),
+        onEndHandler: () => r(rows),
+      });
+    });
+    expect(rows).toMatchInlineSnapshot(`
+      Array [
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
+      ]
+    `);
+  });
+
+  it("selectObjectContent uses LIMIT 42 by returning all rows", async () => {
+    const sql = "SELECT * FROM db.t[*] WHERE elb_response_code='302' AND ssl_protocol='-' LIMIT 42";
+    const selectable = getS3Selectable({ logLevel: "debug" });
+    const rows: string[] = await new Promise(r => {
+      const rows: string[] = [];
+      selectable.select({
+        selectParams: { Expression: sql },
+        onEventHandler: event => (!event.Records ? console.log(event) : undefined),
+        onDataHandler: chunk => rows.push(Buffer.from(chunk).toString()),
+        onEndHandler: () => r(rows),
+      });
     });
     expect(rows).toMatchInlineSnapshot(`
       Array [
@@ -272,7 +334,7 @@ describe("Test selectObjectContent", () => {
     const params = { glue, s3, tableName, databaseName };
     const sql = "SELECT * FROM s3Object WHERE noPayload='true'";
     const selectable = new S3Selectable(params);
-    await expect(async () => await selectable.selectObjectContent({ Expression: sql })).rejects.toThrowError();
+    await expect(async () => await selectable.select(getSimple({ Expression: sql }))).rejects.toThrowError();
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(1); // 1 table
   });
@@ -283,7 +345,7 @@ describe("Test selectObjectContent", () => {
     const [databaseName, tableName] = ["default", "partitioned_and_bucketed_elb_logs_parquet"];
     const params = { glue, s3, tableName, databaseName };
     const selectable = new S3Selectable(params);
-    await expect(async () => await selectable.selectObjectContent({ Expression: undefined })).rejects.toThrowError();
+    await expect(async () => await selectable.select(getSimple({ Expression: undefined }))).rejects.toThrowError();
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(1); // 1 table
   });
@@ -293,8 +355,8 @@ describe("Non-class based s3selectable returns correct results", () => {
   it("valid output", async () => {
     const table = "default.partitioned_and_bucketed_elb_logs_parquet";
     const sql = `SELECT * FROM ${table} WHERE elb_response_code='302' AND ssl_protocol='-'`;
-    const rows = await s3selectableNonClass(sql, new S3({ region }), new Glue({ region }));
-    expect(rows).toMatchInlineSnapshot(`
+    const rows = await s3selectableNonClass(getCommonParams(sql));
+    expect(rows.map(row => Buffer.from(row).toString())).toMatchInlineSnapshot(`
       Array [
         "{\\"id\\":1,\\"value\\":\\"test1\\"}",
         "{\\"id\\":1,\\"value\\":\\"test1\\"}",
@@ -323,7 +385,7 @@ describe("Non-class based s3selectable returns correct results", () => {
   it("no data payload", async () => {
     const table = "default.partitioned_and_bucketed_elb_logs_parquet";
     const sql = `SELECT * FROM ${table} WHERE noData='true'`;
-    const rows = await s3selectableNonClass(sql, new S3({ region: "eu-west-1" }), new Glue({ region: "eu-west-1" }));
+    const rows = await s3selectableNonClass(getCommonParams(sql));
     expect(rows).toEqual([]);
   });
 });
