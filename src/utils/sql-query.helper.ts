@@ -96,8 +96,7 @@ export function getSQLWhereStringFromAST(where: AST): string {
 export function getSQLLimit(sql: string): number {
   const [plainSql] = getPlainSQLAndExpr(sql);
   const found = plainSql.match(/LIMIT\s+(\d+)/im);
-  if (found) return parseInt(found.pop() ?? "0");
-  return 0;
+  return found?.length ? parseInt(found[1]) : 0;
 }
 
 export function setSQLLimit(sql: string, limit: number): string {
