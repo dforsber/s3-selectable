@@ -9,8 +9,8 @@ This module runs parallel [S3 Select](https://aws.amazon.com/blogs/developer/int
 Additional optional parameters include `onEventHandler()`, `onDataHandler()`, and `onEndHandler()`. `onEventHandler()` is called for every S3 SELECT stream event (like `End`, `Status` etc). `onDataHandler()` is called only for data (`Records.Payload`) in `Uint8Array` format. `onEndHandler()` is called once, once the merged stream ends, which makes it easier to e.g. resolve Promise as in the example below. For now, `onEventHandler()` is provided for convenience if you don't want to tap to the merged stream directly.
 
 ```javascript
-export interface ISelectObjectContent {
-  selectParams: TS3SelectaParams;
+export interface ISelect {
+  selectParams: TS3SelectObjectContent;
   onEventHandler?: (event: TEvents) => void;
   onDataHandler?: (event: Uint8Array) => void;
   onEndHandler?: () => void;

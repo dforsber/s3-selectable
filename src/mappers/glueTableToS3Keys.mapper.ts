@@ -1,5 +1,5 @@
 import { errors } from "../common/errors.enum";
-import { GetPartitionsRequest, Partition, StorageDescriptor, Table } from "@aws-sdk/client-glue";
+import { GetPartitionsRequest, Partition, Table } from "@aws-sdk/client-glue";
 import { S3KeysCache } from "../utils/s3KeysCache";
 import { InputSerialization } from "@aws-sdk/client-s3";
 import { PartialBy } from "../s3-selectable/select-types";
@@ -29,18 +29,28 @@ export class GlueTableToS3Key {
 
   public async getTable(): Promise<Table> {
     if (this.table) return this.table;
+    this.table = await this.getDefinedTable();
+    this.tableLocation = await this.getDefinedTableLocation();
+    this.inputSerialization = await this.getInputSerialisation();
+    this.tableBucket = this.s3KeysFetcher.getBucketAndPrefix(this.tableLocation).Bucket;
+    this.partCols = this.table.PartitionKeys?.map(col => col.Name || "").filter(e => e) ?? [];
+    return this.table;
+  }
+
+  private async getDefinedTable(): Promise<Table> {
+    if (this.table) return this.table;
     if (!this.params.glue) throw new Error(errors.noGlue);
-    const [DatabaseName, Name] = [this.params.databaseName, this.params.tableName];
+    const { databaseName: DatabaseName, tableName: Name } = this.params;
     const table = (await this.params.glue.getTable({ DatabaseName, Name })).Table;
     if (!table) throw new Error(`Table not found: ${Name}`);
-    const tableLocation = table.StorageDescriptor?.Location;
-    if (!tableLocation) throw new Error(`No S3 Bucket found for table ${Name}`);
-    this.tableLocation = tableLocation;
-    this.inputSerialization = this.getInputSerialisation(table.StorageDescriptor);
-    this.tableBucket = this.s3KeysFetcher.getBucketAndPrefix(this.tableLocation).Bucket;
-    this.partCols = table.PartitionKeys?.map(col => col.Name || "").filter(e => e) ?? [];
-    this.table = table;
-    return this.table;
+    return table;
+  }
+
+  private async getDefinedTableLocation(): Promise<string> {
+    await this.getDefinedTable();
+    const tableLocation = this.table.StorageDescriptor?.Location;
+    if (!tableLocation) throw new Error(`No S3 Bucket found for table ${this.params.tableName}`);
+    return tableLocation;
   }
 
   public async getTableInfo(): Promise<ITableInfo> {
@@ -56,10 +66,12 @@ export class GlueTableToS3Key {
     await this.getTable();
     await this.getPartitions();
     const partitionLocs = this.partitions
-      .map(p => ({ ...p, Value: this.partCols.reduce((a, c, i) => `${a}/${c}=${p.Values ? p.Values[i] : "u"}`, "") }))
-      .filter(p => values.length <= 0 || values.some(v => v.includes(p.Value)))
+      .filter(p => p.Values)
+      .map(p => ({ ...p, Values: p.Values ?? [] })) // because of TS/eslint to get defined p.Values
+      .map(p => ({ ...p, colStr: this.getPartColsString(p.Values) }))
+      .filter(p => values.length <= 0 || values.some(v => v.includes(p.colStr)))
       .map(p => p.StorageDescriptor?.Location)
-      .filter(l => !!l);
+      .filter(l => l);
     const keys = await Promise.all(partitionLocs.map(loc => this.s3KeysFetcher.getKeys(<string>loc)));
     return keys.reduce((acc, curr) => [...acc, ...curr], []);
   }
@@ -67,29 +79,31 @@ export class GlueTableToS3Key {
   public async getPartitions(): Promise<Partition[]> {
     if (this.partitions) return this.partitions;
     if (!this.params.glue) throw new Error(errors.noGlue);
-    const params = { DatabaseName: this.params.databaseName, TableName: this.params.tableName };
+    const { databaseName: DatabaseName, tableName: TableName } = this.params;
+    const params: GetPartitionsRequest = { DatabaseName, TableName };
     this.partitions = [];
-    let token: string | undefined;
     do {
-      const p: GetPartitionsRequest = token ? { ...params, NextToken: token } : params;
-      const { Partitions, NextToken } = await this.params.glue.getPartitions(p);
-      if (!Partitions) return [];
-      this.partitions.push(...Partitions);
-      token = NextToken;
-    } while (token);
+      const { Partitions, NextToken } = await this.params.glue.getPartitions(params);
+      this.partitions.push(...(Partitions ?? []));
+      params.NextToken = NextToken;
+    } while (params.NextToken);
     return this.partitions;
+  }
+
+  private getPartColsString(values: string[]): string {
+    return this.partCols.reduce((a, c, i) => `${a}/${c}=${values[i]}`, "");
   }
 
   public async getPartitionValues(): Promise<string[]> {
     await this.getTable();
     await this.getPartitions();
-    return this.partitions
-      .map(p => p.Values)
-      .map(v => this.partCols.reduce((a, c, i) => `${a}/${c}=${v ? v[i] : "u"}`, ""));
+    return this.partitions.map(p => p.Values ?? []).map(v => this.getPartColsString(v));
   }
 
   // This is rudimentary and assumes e.g. that CSV files are GZIP compressed.
-  private getInputSerialisation(desc?: StorageDescriptor): InputSerialization | undefined {
+  private async getInputSerialisation(): Promise<InputSerialization | undefined> {
+    await this.getDefinedTable();
+    const desc = this.table.StorageDescriptor;
     if (!desc?.SerdeInfo?.SerializationLibrary) return;
     const serLib = desc.SerdeInfo.SerializationLibrary.toLowerCase();
     if (serLib.includes("json")) return { JSON: { Type: "DOCUMENT" } };

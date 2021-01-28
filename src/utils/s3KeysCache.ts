@@ -8,19 +8,16 @@ export class S3KeysCache {
 
   public async getKeys(location: string): Promise<string[]> {
     if (!this.s3) throw new Error(errors.noS3);
-    const params = this.getBucketAndPrefix(location);
     if (this.cachedKeys.has(location)) return <string[]>this.cachedKeys.get(location);
-    const keys: Array<string | undefined> = [];
-    let token: string | undefined = undefined;
+    const params: ListObjectsV2Request = this.getBucketAndPrefix(location);
+    const keys: Array<string> = [];
     do {
-      const p: ListObjectsV2Request = token ? { ...params, ContinuationToken: token } : params;
-      const { Contents, NextContinuationToken } = await this.s3.listObjectsV2(p);
-      if (!Contents) throw new Error(`Invalid Contents for location: s3://${params.Bucket}/${params.Prefix}`);
-      keys.push(...Contents.map(k => k.Key));
-      token = NextContinuationToken;
-    } while (token);
-    this.cachedKeys.set(location, <string[]>keys.filter(k => !!k));
-    return <string[]>this.cachedKeys.get(location);
+      const { Contents, NextContinuationToken } = await this.s3.listObjectsV2(params);
+      keys.push(...(Contents ?? []).map(k => k.Key ?? ""));
+      params.ContinuationToken = NextContinuationToken;
+    } while (params.ContinuationToken);
+    this.cachedKeys.set(location, keys);
+    return keys;
   }
 
   public getBucketAndPrefix(location: string): { Bucket: string; Prefix: string } {

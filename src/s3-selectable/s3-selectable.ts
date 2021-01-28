@@ -130,20 +130,13 @@ export class S3Selectable {
     return stream.Readable.from(selStream.Payload, { objectMode: true });
   }
 
-  /*
-   * Increased complexity is due to fetching both getTableInfo and
-   * getPartitionValues concurrently (Promise.all) while doing caching
-   */
   public async cacheTableMetadata(): Promise<void> {
+    if (this.s3bucket) return;
     const info = await this.mapper.getTableInfo();
-    [this.s3bucket, this.partitionColumns, this.inputSerialisation] = [
-      info.Bucket,
-      info.PartitionColumns,
-      info.InputSerialization,
-    ];
     const partitionValues = await this.mapper.getPartitionValues();
-    this.partitionsFilter = this.partitionsFilter
-      ? this.partitionsFilter
-      : new PartitionPreFilter(partitionValues, this.partitionColumns);
+    this.partitionColumns = info.PartitionColumns;
+    this.inputSerialisation = info.InputSerialization;
+    this.partitionsFilter = new PartitionPreFilter(partitionValues, this.partitionColumns);
+    this.s3bucket = info.Bucket;
   }
 }
