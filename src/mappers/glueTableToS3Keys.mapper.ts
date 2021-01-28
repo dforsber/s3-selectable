@@ -2,7 +2,8 @@ import { errors } from "../common/errors.enum";
 import { GetPartitionsRequest, Partition, StorageDescriptor, Table } from "@aws-sdk/client-glue";
 import { S3KeysCache } from "../utils/s3KeysCache";
 import { InputSerialization } from "@aws-sdk/client-s3";
-import { IS3Selectable, PartialBy } from "../s3-selectable/types";
+import { PartialBy } from "../s3-selectable/select-types";
+import { IS3Selectable } from "../s3-selectable/s3-selectable";
 
 export interface ITableInfo {
   Bucket: string;
@@ -21,7 +22,7 @@ export class GlueTableToS3Key {
   private inputSerialization!: InputSerialization | undefined;
   private tableBucket!: string;
   private partitions!: Partition[];
-  private partitionColumns!: string[];
+  private partCols!: string[];
   private s3KeysFetcher = new S3KeysCache(this.params.s3);
 
   constructor(private params: PartialBy<IS3Selectable, "s3" | "glue">) {}
@@ -37,16 +38,16 @@ export class GlueTableToS3Key {
     this.tableLocation = tableLocation;
     this.inputSerialization = this.getInputSerialisation(table.StorageDescriptor);
     this.tableBucket = this.s3KeysFetcher.getBucketAndPrefix(this.tableLocation).Bucket;
-    this.partitionColumns = table.PartitionKeys?.map(col => col.Name || "").filter(e => e) ?? [];
+    this.partCols = table.PartitionKeys?.map(col => col.Name || "").filter(e => e) ?? [];
     this.table = table;
     return this.table;
   }
 
   public async getTableInfo(): Promise<ITableInfo> {
-    if (!this.tableBucket || !this.partitionColumns) await this.getTable();
+    if (!this.tableBucket || !this.partCols) await this.getTable();
     return {
       Bucket: this.tableBucket,
-      PartitionColumns: this.partitionColumns,
+      PartitionColumns: this.partCols,
       InputSerialization: this.inputSerialization,
     };
   }
@@ -55,10 +56,7 @@ export class GlueTableToS3Key {
     await this.getTable();
     await this.getPartitions();
     const partitionLocs = this.partitions
-      .map(p => ({
-        ...p,
-        Value: this.partitionColumns.reduce((a, c, i) => `${a}/${c}=${p.Values ? p.Values[i] : "ValueUndefined"}`, ""),
-      }))
+      .map(p => ({ ...p, Value: this.partCols.reduce((a, c, i) => `${a}/${c}=${p.Values ? p.Values[i] : "u"}`, "") }))
       .filter(p => values.length <= 0 || values.some(v => v.includes(p.Value)))
       .map(p => p.StorageDescriptor?.Location)
       .filter(l => !!l);
@@ -87,7 +85,7 @@ export class GlueTableToS3Key {
     await this.getPartitions();
     return this.partitions
       .map(p => p.Values)
-      .map(v => this.partitionColumns.reduce((a, c, i) => `${a}/${c}=${v ? v[i] : "ValueUndefined"}`, ""));
+      .map(v => this.partCols.reduce((a, c, i) => `${a}/${c}=${v ? v[i] : "u"}`, ""));
   }
 
   // This is rudimentary and assumes e.g. that CSV files are GZIP compressed.

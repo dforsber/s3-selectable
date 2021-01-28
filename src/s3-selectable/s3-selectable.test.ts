@@ -1,11 +1,16 @@
-import { GetPartitionsRequest, GetTableRequest } from "@aws-sdk/client-glue";
-import { IS3Selectable, IS3selectableNonClass, ISelectObjectContent, TS3SelectaParams } from "./types";
+import { GetPartitionsRequest, GetTableRequest, Glue } from "@aws-sdk/client-glue";
+import { IS3Selectable, S3Selectable } from "./s3-selectable";
+import { ISelect, TS3SelectObjectContent } from "./select-types";
 import { ListObjectsV2CommandInput, S3, SelectObjectContentCommandInput } from "@aws-sdk/client-s3";
 import { Readable, ReadableOptions } from "stream";
-import { S3Selectable, s3selectableNonClass } from "./s3-selectable";
 import { testTableKeys, testTableParquet, testTablePartitions } from "../common/fixtures/glue-table";
 
-import { Glue } from "@aws-sdk/client-glue";
+import { IS3selectableNonClass } from "./s3-selectable-nonclass";
+
+export function getClassParams(sql = ""): IS3selectableNonClass {
+  const region = { region: "eu-west-1" };
+  return { sql, s3: new S3(region), glue: new Glue(region) };
+}
 
 jest.mock("@aws-sdk/client-s3");
 jest.mock("@aws-sdk/client-glue");
@@ -96,17 +101,12 @@ jest.mock("@aws-sdk/client-s3", () => ({
   },
 }));
 
-function getCommonParams(sql = ""): IS3selectableNonClass {
-  const region = { region: "eu-west-1" };
-  return { sql, s3: new S3(region), glue: new Glue(region) };
-}
-
 function getS3Selectable(params?: Partial<IS3Selectable>): S3Selectable {
   const [databaseName, tableName] = ["default", "partitioned_and_bucketed_elb_logs_parquet"];
-  return new S3Selectable({ ...getCommonParams(), tableName, databaseName, ...params });
+  return new S3Selectable({ ...getClassParams(), tableName, databaseName, ...params });
 }
 
-function getSimple(params: TS3SelectaParams): ISelectObjectContent {
+function getSimple(params: TS3SelectObjectContent): ISelect {
   return { selectParams: params };
 }
 
@@ -192,6 +192,42 @@ describe("Test selectObjectContent", () => {
         "{\\"id\\":2,\\"value\\":\\"test2\\"}",
         "{\\"id\\":2,\\"value\\":\\"test2\\"}",
       ]
+    `);
+  });
+
+  it("explain select works", async () => {
+    const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
+    const selectable = getS3Selectable();
+    const res = await selectable.explainSelect({
+      selectParams: { Expression: sql },
+    });
+    expect(res).toMatchInlineSnapshot(`
+      Object {
+        "limit": 0,
+        "s3Keys": Array [
+          "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00000",
+          "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00001",
+          "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00002",
+          "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00003",
+          "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00004",
+          "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00005",
+          "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00006",
+          "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00007",
+          "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00008",
+          "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00009",
+        ],
+        "selectParams": Object {
+          "Bucket": "dummy-test-bucket",
+          "Expression": "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'",
+          "ExpressionType": "SQL",
+          "InputSerialization": Object {
+            "Parquet": Object {},
+          },
+          "OutputSerialization": Object {
+            "JSON": Object {},
+          },
+        },
+      }
     `);
   });
 
@@ -348,44 +384,5 @@ describe("Test selectObjectContent", () => {
     await expect(async () => await selectable.select(getSimple({ Expression: undefined }))).rejects.toThrowError();
     expect(glueGetTableCalled).toEqual(1);
     expect(glueGetPartitionsCalled).toEqual(1); // 1 table
-  });
-});
-
-describe("Non-class based s3selectable returns correct results", () => {
-  it("valid output", async () => {
-    const table = "default.partitioned_and_bucketed_elb_logs_parquet";
-    const sql = `SELECT * FROM ${table} WHERE elb_response_code='302' AND ssl_protocol='-'`;
-    const rows = await s3selectableNonClass(getCommonParams(sql));
-    expect(rows.map(row => Buffer.from(row).toString())).toMatchInlineSnapshot(`
-      Array [
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-      ]
-    `);
-  });
-
-  it("no data payload", async () => {
-    const table = "default.partitioned_and_bucketed_elb_logs_parquet";
-    const sql = `SELECT * FROM ${table} WHERE noData='true'`;
-    const rows = await s3selectableNonClass(getCommonParams(sql));
-    expect(rows).toEqual([]);
   });
 });
