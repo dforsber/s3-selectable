@@ -76,17 +76,17 @@ function filterParts(ast: any, partCols: string[], filter: (partCols: string[], 
   return { ...ast, left: filterParts(ast.left, partCols, filter), right: filterParts(ast.right, partCols, filter) };
 }
 
-export function makePartitionSpecificAST(ast: AST, partitionColumns: string[]): AST {
-  if (!ast) return ast;
+export function makePartitionSpecificAST(ast: AST | undefined, partitionColumns: string[]): AST | undefined {
+  if (!ast) return;
   return filterParts(ast, partitionColumns, nonPartFilter);
 }
 
-export function makeSelectSpecificAST(ast: AST, partitionColumns: string[]): AST {
-  if (!ast) return ast;
+export function makeSelectSpecificAST(ast: AST | undefined, partitionColumns: string[]): AST | undefined {
+  if (!ast) return;
   return filterParts(ast, partitionColumns, partFilter);
 }
 
-export function getSQLWhereStringFromAST(where: AST): string {
+export function getSQLWhereStringFromAST(where: AST | undefined): string {
   const parser = new Parser();
   return parser
     .sqlify(
@@ -108,7 +108,8 @@ export function getSQLWhereStringFromAST(where: AST): string {
     .substring(25);
 }
 
-function replaceWhereInSQL(sql: string, newWhere: AST): string {
+function replaceWhereInSQL(sql: string, newWhere: AST | undefined): string {
+  if (!newWhere) return sql;
   const [plainSql] = getPlainSQLAndExpr(sql);
   const parser = new Parser();
   const ast = parser.astify(plainSql, nodeSqlParserOpts);

@@ -1,9 +1,11 @@
-import { errors } from "../common/errors.enum";
 import { GetPartitionsRequest, Partition, Table } from "@aws-sdk/client-glue";
-import { S3KeysCache } from "../utils/s3KeysCache";
+import { notUndefined, verifiedPartition } from "../common/helpers";
+
+import { IS3Selectable } from "../s3-selectable/s3-selectable";
 import { InputSerialization } from "@aws-sdk/client-s3";
 import { PartialBy } from "../s3-selectable/select-types";
-import { IS3Selectable } from "../s3-selectable/s3-selectable";
+import { S3KeysCache } from "../utils/s3KeysCache";
+import { errors } from "../common/errors.enum";
 
 export interface ITableInfo {
   Bucket: string;
@@ -33,7 +35,7 @@ export class GlueTableToS3Key {
     this.tableLocation = await this.getDefinedTableLocation();
     this.inputSerialization = await this.getInputSerialisation();
     this.tableBucket = this.s3KeysFetcher.getBucketAndPrefix(this.tableLocation).Bucket;
-    this.partCols = this.table.PartitionKeys?.map(col => col.Name || "").filter(e => e) ?? [];
+    this.partCols = this.table.PartitionKeys?.map(col => col.Name).filter(notUndefined) ?? [];
     return this.table;
   }
 
@@ -66,13 +68,12 @@ export class GlueTableToS3Key {
     await this.getTable();
     await this.getPartitions();
     const partitionLocs = this.partitions
-      .filter(p => p.Values)
-      .map(p => ({ ...p, Values: p.Values ?? [] })) // because of TS/eslint to get defined p.Values
+      .filter(verifiedPartition)
       .map(p => ({ ...p, colStr: this.getPartColsString(p.Values) }))
       .filter(p => values.length <= 0 || values.some(v => v.includes(p.colStr)))
-      .map(p => p.StorageDescriptor?.Location)
-      .filter(l => l);
-    const keys = await Promise.all(partitionLocs.map(loc => this.s3KeysFetcher.getKeys(<string>loc)));
+      .map(p => p.StorageDescriptor.Location)
+      .filter(notUndefined);
+    const keys = await Promise.all(partitionLocs.map(loc => this.s3KeysFetcher.getKeys(loc)));
     return keys.reduce((acc, curr) => [...acc, ...curr], []);
   }
 
@@ -84,7 +85,7 @@ export class GlueTableToS3Key {
     this.partitions = [];
     do {
       const { Partitions, NextToken } = await this.params.glue.getPartitions(params);
-      this.partitions.push(...(Partitions ?? []));
+      if (Partitions) this.partitions.push(...Partitions);
       params.NextToken = NextToken;
     } while (params.NextToken);
     return this.partitions;
@@ -97,7 +98,7 @@ export class GlueTableToS3Key {
   public async getPartitionValues(): Promise<string[]> {
     await this.getTable();
     await this.getPartitions();
-    return this.partitions.map(p => p.Values ?? []).map(v => this.getPartColsString(v));
+    return this.partitions.filter(verifiedPartition).map(p => this.getPartColsString(p.Values));
   }
 
   // This is rudimentary and assumes e.g. that CSV files are GZIP compressed.

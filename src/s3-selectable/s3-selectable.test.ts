@@ -203,142 +203,6 @@ describe("Test selectObjectContent", () => {
     });
     expect(res).toMatchInlineSnapshot(`
       Object {
-        "glueTable": Object {
-          "CreateTime": 2020-05-25T19:50:34.000Z,
-          "CreatedBy": "arn:aws:iam::589434896614:root",
-          "DatabaseName": "default",
-          "IsRegisteredWithLakeFormation": false,
-          "LastAccessTime": 1970-01-01T00:00:00.000Z,
-          "Name": "partitioned_and_bucketed_elb_logs_parquet",
-          "Owner": "589434896614",
-          "Parameters": Object {
-            "EXTERNAL": "TRUE",
-            "has_encrypted_data": "false",
-            "parquet.compression": "GZIP",
-          },
-          "PartitionKeys": Array [
-            Object {
-              "Comment": "",
-              "Name": "ssl_protocol",
-              "Type": "string",
-            },
-            Object {
-              "Comment": "",
-              "Name": "elb_response_code",
-              "Type": "string",
-            },
-          ],
-          "Retention": 0,
-          "StorageDescriptor": Object {
-            "BucketColumns": Array [
-              "elb_name",
-            ],
-            "Columns": Array [
-              Object {
-                "Comment": "",
-                "Name": "request_timestamp",
-                "Type": "string",
-              },
-              Object {
-                "Comment": "",
-                "Name": "request_ip",
-                "Type": "string",
-              },
-              Object {
-                "Comment": "",
-                "Name": "request_port",
-                "Type": "int",
-              },
-              Object {
-                "Comment": "",
-                "Name": "backend_ip",
-                "Type": "string",
-              },
-              Object {
-                "Comment": "",
-                "Name": "backend_port",
-                "Type": "int",
-              },
-              Object {
-                "Comment": "",
-                "Name": "request_processing_time",
-                "Type": "double",
-              },
-              Object {
-                "Comment": "",
-                "Name": "backend_processing_time",
-                "Type": "double",
-              },
-              Object {
-                "Comment": "",
-                "Name": "client_response_time",
-                "Type": "double",
-              },
-              Object {
-                "Comment": "",
-                "Name": "backend_response_code",
-                "Type": "string",
-              },
-              Object {
-                "Comment": "",
-                "Name": "received_bytes",
-                "Type": "bigint",
-              },
-              Object {
-                "Comment": "",
-                "Name": "sent_bytes",
-                "Type": "bigint",
-              },
-              Object {
-                "Comment": "",
-                "Name": "request_verb",
-                "Type": "string",
-              },
-              Object {
-                "Comment": "",
-                "Name": "url",
-                "Type": "string",
-              },
-              Object {
-                "Comment": "",
-                "Name": "protocol",
-                "Type": "string",
-              },
-              Object {
-                "Comment": "",
-                "Name": "user_agent",
-                "Type": "string",
-              },
-              Object {
-                "Comment": "",
-                "Name": "ssl_cipher",
-                "Type": "string",
-              },
-              Object {
-                "Comment": "",
-                "Name": "elb_name",
-                "Type": "string",
-              },
-            ],
-            "Compressed": false,
-            "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
-            "Location": "s3://dummy-test-bucket/Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e",
-            "NumberOfBuckets": 10,
-            "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
-            "Parameters": Object {},
-            "SerdeInfo": Object {
-              "Name": "partitioned_and_bucketed_elb_logs_parquet",
-              "Parameters": Object {},
-              "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",
-            },
-            "SortColumns": Array [],
-            "StoredAsSubDirectories": false,
-          },
-          "TableType": "EXTERNAL_TABLE",
-          "UpdateTime": 2020-05-25T19:50:34.000Z,
-          "ViewExpandedText": "",
-          "ViewOriginalText": "",
-        },
         "preparedSelect": Object {
           "limit": 0,
           "s3Keys": Array [
@@ -364,6 +228,16 @@ describe("Test selectObjectContent", () => {
               "JSON": Object {},
             },
           },
+        },
+        "tableInfo": Object {
+          "Bucket": "dummy-test-bucket",
+          "InputSerialization": Object {
+            "Parquet": Object {},
+          },
+          "PartitionColumns": Array [
+            "ssl_protocol",
+            "elb_response_code",
+          ],
         },
       }
     `);

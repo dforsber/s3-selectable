@@ -48,10 +48,8 @@ export class S3Selectable {
   public async explainSelect(params: ISelect): Promise<IExplainSelect> {
     this.logger.debug("explain select:", params);
     const preparedSelect = await this.prepareSelect(params);
-    const glueTable = await this.mapper.getTable();
-    const res = { glueTable, preparedSelect };
-    this.logger.debug(res);
-    return res;
+    const tableInfo = await this.mapper.getTableInfo();
+    return { tableInfo, preparedSelect };
   }
 
   private async prepareSelect(params: ISelect): Promise<IPreparedSelect> {

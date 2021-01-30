@@ -1,6 +1,7 @@
 import { errors } from "../common/errors.enum";
 import { ListObjectsV2Request } from "@aws-sdk/client-s3";
 import { S3 } from "@aws-sdk/client-s3";
+import { notUndefined } from "../common/helpers";
 
 export class S3KeysCache {
   private cachedKeys: Map<string, string[]> = new Map();
@@ -10,10 +11,10 @@ export class S3KeysCache {
     if (!this.s3) throw new Error(errors.noS3);
     if (this.cachedKeys.has(location)) return <string[]>this.cachedKeys.get(location);
     const params: ListObjectsV2Request = this.getBucketAndPrefix(location);
-    const keys: Array<string> = [];
+    const keys: string[] = [];
     do {
       const { Contents, NextContinuationToken } = await this.s3.listObjectsV2(params);
-      keys.push(...(Contents ?? []).map(k => k.Key ?? ""));
+      keys.push(...(Contents ?? []).map(k => k.Key).filter(notUndefined));
       params.ContinuationToken = NextContinuationToken;
     } while (params.ContinuationToken);
     this.cachedKeys.set(location, keys);
@@ -21,9 +22,9 @@ export class S3KeysCache {
   }
 
   public getBucketAndPrefix(location: string): { Bucket: string; Prefix: string } {
-    const vals = location?.split("//").slice(1).join("//").split("/");
-    const Bucket = vals?.shift();
-    const Prefix = vals?.join("/");
+    const vals = location.split("//").slice(1).join("//").split("/");
+    const Bucket = vals.shift();
+    const Prefix = vals.join("/");
     if (!Bucket) throw new Error(`Invalid S3 path: ${location}`);
     return { Bucket, Prefix };
   }

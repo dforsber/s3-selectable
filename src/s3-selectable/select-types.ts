@@ -1,6 +1,6 @@
 import { SelectObjectContentCommandInput, SelectObjectContentEventStream } from "@aws-sdk/client-s3";
 
-import { Table } from "@aws-sdk/client-glue";
+import { ITableInfo } from "../mappers/glueTableToS3Keys.mapper";
 
 /*
  * interface for select() method
@@ -42,6 +42,6 @@ export interface IPreparedSelect extends TS3electObjectContentVerified {
 }
 
 export interface IExplainSelect {
-  glueTable: Table;
+  tableInfo: ITableInfo;
   preparedSelect: IPreparedSelect;
 }
