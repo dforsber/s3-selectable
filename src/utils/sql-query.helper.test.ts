@@ -1,11 +1,12 @@
 import {
+  getPartsOnlySQLWhereString,
   getPlainSQLAndExpr,
   getSQLLimit,
   getSQLWhereAST,
-  getSQLWhereString,
   getSQLWhereStringFromAST,
   getTableAndDbAndExpr,
   makePartitionSpecificAST,
+  makeSelectSpecificAST,
   setSQLLimit,
 } from "./sql-query.helper";
 
@@ -141,6 +142,20 @@ describe("SQL WHERE clauses", () => {
     expect(() => makePartitionSpecificAST(getSQLWhereAST(sql), [])).toThrowError();
   });
 
+  it("set partition clauses true, no non-partition columns", () => {
+    const sql = "SELECT * FROM s3Object WHERE year<=2020 AND 9<=month AND true";
+    expect(getSQLWhereStringFromAST(makeSelectSpecificAST(getSQLWhereAST(sql), ["year", "month", "day"]))).toEqual(
+      "WHERE TRUE AND TRUE AND TRUE",
+    );
+  });
+
+  it("set partition clauses true, one non-partition column", () => {
+    const sql = "SELECT * FROM s3Object WHERE year<=2020 AND 9<=month AND(foo=1 OR 2=bar) AND true";
+    expect(getSQLWhereStringFromAST(makeSelectSpecificAST(getSQLWhereAST(sql), ["year", "month", "day"]))).toEqual(
+      "WHERE TRUE AND TRUE AND (`foo` = 1 OR 2 = `bar`) AND TRUE",
+    );
+  });
+
   it("set non-partition clauses true, one partition column", () => {
     const sql = "SELECT * FROM s3Object WHERE year<=2020 AND 9<=month AND(foo=1 OR 2=bar) AND true";
     expect(getSQLWhereStringFromAST(makePartitionSpecificAST(getSQLWhereAST(sql), ["year", "month", "day"]))).toEqual(
@@ -188,7 +203,7 @@ describe("SQL WHERE clauses", () => {
       type: "binary_expr",
     };
     expect(getSQLWhereAST(sql)).toEqual(expected);
-    expect(getSQLWhereString(sql, ["year", "month", "day"])).toEqual("WHERE `year` <= 2020 AND `month` >= 2");
+    expect(getPartsOnlySQLWhereString(sql, ["year", "month", "day"])).toEqual("WHERE `year` <= 2020 AND `month` >= 2");
   });
 
   it("with subclauses", () => {
@@ -288,7 +303,7 @@ describe("SQL WHERE clauses", () => {
       type: "binary_expr",
     };
     expect(getSQLWhereAST(sql)).toEqual(expected);
-    expect(getSQLWhereString(sql, ["year", "month", "day"])).toEqual(
+    expect(getPartsOnlySQLWhereString(sql, ["year", "month", "day"])).toEqual(
       "WHERE (`year` <= 2020 AND `month` >= 2 AND TRUE) OR (`year` > 2020 AND `month` < 10) AND TRUE",
     );
   });

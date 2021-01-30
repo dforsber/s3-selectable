@@ -1,4 +1,5 @@
 import {
+  IExplainSelect,
   IPreparedSelect,
   ISelect,
   TS3SelectObjectContent,
@@ -7,7 +8,7 @@ import {
 } from "./select-types";
 import { InputSerialization, S3, SelectObjectContentCommandInput } from "@aws-sdk/client-s3";
 import { TEvents, defaultS3SelectParms } from "./select-types";
-import { getSQLLimit, getSQLWhereString, setSQLLimit } from "../utils/sql-query.helper";
+import { getNonPartsSQL, getPartsOnlySQLWhereString, getSQLLimit, setSQLLimit } from "../utils/sql-query.helper";
 import stream, { Readable } from "stream";
 
 import { Glue } from "@aws-sdk/client-glue";
@@ -38,21 +39,19 @@ export class S3Selectable {
     tableName: this.props.tableName,
   });
 
-  constructor(private props: IS3Selectable) {}
+  constructor(public props: IS3Selectable) {}
 
   public async select(params: ISelect): Promise<stream> {
     return this.executeSelect(await this.prepareSelect(params));
   }
 
-  private async executeSelect(params: IPreparedSelect): Promise<stream> {
-    const { s3Keys, selectParams, limit } = params;
-    await this.getMergedStream(s3Keys, selectParams);
-    this.setHandlers({ ...params, selectParams }, limit);
-    return this.merged;
-  }
-
-  public async explainSelect(params: ISelect): Promise<IPreparedSelect> {
-    return this.prepareSelect(params);
+  public async explainSelect(params: ISelect): Promise<IExplainSelect> {
+    this.logger.debug("explain select:", params);
+    const preparedSelect = await this.prepareSelect(params);
+    const glueTable = await this.mapper.getTable();
+    const res = { glueTable, preparedSelect };
+    this.logger.debug(res);
+    return res;
   }
 
   private async prepareSelect(params: ISelect): Promise<IPreparedSelect> {
@@ -61,7 +60,16 @@ export class S3Selectable {
     const limit = getSQLLimit(selectParamsVerified.Expression);
     const s3Keys = await this.getFilteredS3Keys(selectParamsVerified.Expression, limit);
     this.logger.debug("number of S3 Keys:", s3Keys.length);
-    return { ...params, limit, s3Keys, selectParams: this.setLimitIfNeeded(s3Keys, selectParamsVerified, limit) };
+    const selectParams = this.setLimitIfNeeded(s3Keys, selectParamsVerified, limit);
+    selectParams.Expression = getNonPartsSQL(selectParams.Expression, this.partitionColumns);
+    return { ...params, limit, s3Keys, selectParams };
+  }
+
+  private async executeSelect(params: IPreparedSelect): Promise<stream> {
+    const { s3Keys, selectParams, limit } = params;
+    await this.getMergedStream(s3Keys, selectParams);
+    this.setHandlers({ ...params, selectParams }, limit);
+    return this.merged;
   }
 
   private setLimitIfNeeded(
@@ -85,7 +93,7 @@ export class S3Selectable {
   }
 
   private getFilteredPartitionValues(sql: string): Promise<string[]> {
-    const whereSql = getSQLWhereString(sql, this.partitionColumns);
+    const whereSql = getPartsOnlySQLWhereString(sql, this.partitionColumns);
     return this.partitionsFilter.filterPartitions(whereSql);
   }
 

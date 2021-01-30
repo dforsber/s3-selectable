@@ -1,5 +1,7 @@
 import { SelectObjectContentCommandInput, SelectObjectContentEventStream } from "@aws-sdk/client-s3";
 
+import { Table } from "@aws-sdk/client-glue";
+
 /*
  * interface for select() method
  */
@@ -37,4 +39,9 @@ export type TS3electObjectContentVerified = Omit<ISelect, "selectParams"> & {
 export interface IPreparedSelect extends TS3electObjectContentVerified {
   limit: number;
   s3Keys: string[];
+}
+
+export interface IExplainSelect {
+  glueTable: Table;
+  preparedSelect: IPreparedSelect;
 }
