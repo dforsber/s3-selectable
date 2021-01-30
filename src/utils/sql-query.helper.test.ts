@@ -1,11 +1,13 @@
 import {
+  getNonPartsSQL,
+  getPartsOnlySQLWhereString,
   getPlainSQLAndExpr,
   getSQLLimit,
   getSQLWhereAST,
-  getSQLWhereString,
   getSQLWhereStringFromAST,
   getTableAndDbAndExpr,
   makePartitionSpecificAST,
+  makeSelectSpecificAST,
   setSQLLimit,
 } from "./sql-query.helper";
 
@@ -100,6 +102,24 @@ describe("ensuring JSON table queries work too", () => {
   });
 });
 
+describe("S3 Select SQL clauses", () => {
+  it("changes partition column filters to TRUE (partition filtering has already been done)", () => {
+    const sql = "SELECT * FROM s3Object WHERE part=0";
+    const expected = "SELECT * FROM s3Object WHERE TRUE";
+    expect(getNonPartsSQL(sql, ["part"])).toEqual(expected);
+  });
+  it("does not change the query if not partition filters", () => {
+    const sql = "SELECT * FROM s3Object";
+    const expected = "SELECT * FROM s3Object";
+    expect(getNonPartsSQL(sql, ["part"])).toEqual(expected);
+  });
+  it("does not change the query if not partition filters", () => {
+    const sql = "SELECT * FROM s3Object WHERE col=0";
+    const expected = "SELECT * FROM s3Object WHERE col = 0";
+    expect(getNonPartsSQL(sql, [])).toEqual(expected);
+  });
+});
+
 describe("SQL WHERE clauses", () => {
   it("with single clause", () => {
     const sql = "SELECT * FROM s3Object WHERE part=0";
@@ -127,7 +147,14 @@ describe("SQL WHERE clauses", () => {
 
   it("without WHERE with partition specific WHERE mutation", () => {
     const sql = "SELECT * FROM s3Object";
-    const expected = null;
+    const expected = undefined;
+    expect(makePartitionSpecificAST(getSQLWhereAST(sql), [])).toEqual(expected);
+  });
+
+  // replaceWhereInSQL
+  it("without WHERE with partition specific WHERE mutation", () => {
+    const sql = "SELECT * FROM s3Object";
+    const expected = undefined;
     expect(makePartitionSpecificAST(getSQLWhereAST(sql), [])).toEqual(expected);
   });
 
@@ -139,6 +166,20 @@ describe("SQL WHERE clauses", () => {
   it("only SELECT queries", () => {
     const sql = "UPDATE TABLE";
     expect(() => makePartitionSpecificAST(getSQLWhereAST(sql), [])).toThrowError();
+  });
+
+  it("set partition clauses true, no non-partition columns", () => {
+    const sql = "SELECT * FROM s3Object WHERE year<=2020 AND 9<=month AND true";
+    expect(getSQLWhereStringFromAST(makeSelectSpecificAST(getSQLWhereAST(sql), ["year", "month", "day"]))).toEqual(
+      "WHERE TRUE AND TRUE AND TRUE",
+    );
+  });
+
+  it("set partition clauses true, one non-partition column", () => {
+    const sql = "SELECT * FROM s3Object WHERE year<=2020 AND 9<=month AND(foo=1 OR 2=bar) AND true";
+    expect(getSQLWhereStringFromAST(makeSelectSpecificAST(getSQLWhereAST(sql), ["year", "month", "day"]))).toEqual(
+      "WHERE TRUE AND TRUE AND (`foo` = 1 OR 2 = `bar`) AND TRUE",
+    );
   });
 
   it("set non-partition clauses true, one partition column", () => {
@@ -188,7 +229,7 @@ describe("SQL WHERE clauses", () => {
       type: "binary_expr",
     };
     expect(getSQLWhereAST(sql)).toEqual(expected);
-    expect(getSQLWhereString(sql, ["year", "month", "day"])).toEqual("WHERE `year` <= 2020 AND `month` >= 2");
+    expect(getPartsOnlySQLWhereString(sql, ["year", "month", "day"])).toEqual("WHERE `year` <= 2020 AND `month` >= 2");
   });
 
   it("with subclauses", () => {
@@ -288,7 +329,7 @@ describe("SQL WHERE clauses", () => {
       type: "binary_expr",
     };
     expect(getSQLWhereAST(sql)).toEqual(expected);
-    expect(getSQLWhereString(sql, ["year", "month", "day"])).toEqual(
+    expect(getPartsOnlySQLWhereString(sql, ["year", "month", "day"])).toEqual(
       "WHERE (`year` <= 2020 AND `month` >= 2 AND TRUE) OR (`year` > 2020 AND `month` < 10) AND TRUE",
     );
   });

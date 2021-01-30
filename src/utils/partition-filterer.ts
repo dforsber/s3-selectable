@@ -1,4 +1,5 @@
 import { Database } from "sqlite3";
+import { notUndefined } from "../common/helpers";
 
 export function getPartitionKeyValue(partition: string, partCol: string): string | undefined {
   const p = partition.split(`${partCol}=`)[1];
@@ -33,7 +34,7 @@ async function insertPartitions(db: Database, parts: string[], partCols: string[
   const sql = `INSERT INTO partitions VALUES (${Array(numCols).fill("?", 0, numCols).join(",")})`;
   await Promise.all(
     parts.map(part => {
-      const params = [part, ...partCols.map(col => getPartitionKeyValue(part, col))].filter(k => !!k);
+      const params = [part, ...partCols.map(col => getPartitionKeyValue(part, col))].filter(notUndefined);
       return sqliteRun(db, sql, <string[]>params);
     }),
   );

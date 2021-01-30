@@ -57,21 +57,36 @@ export function getSQLWhereAST(sql: string): AST {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function filterByPartsOnly(ast: any, partCols: string[]): any {
+function partFilter(partCols: string[], column: any): boolean {
+  return partCols.some(c => c === column);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function nonPartFilter(partCols: string[], column: any): boolean {
+  return partCols.every(c => c !== column);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function filterParts(ast: any, partCols: string[], filter: (partCols: string[], column: any) => boolean): any {
   const nonFiltering = { type: "bool", value: true };
   if (ast.type === "column_ref") return ast;
-  if (ast.left?.type === "column_ref" && !partCols.some(c => c === ast.left?.column)) return nonFiltering;
-  if (ast.right?.type === "column_ref" && !partCols.some(c => c === ast.right?.column)) return nonFiltering;
+  if (ast.left?.type === "column_ref" && filter(partCols, ast.left?.column)) return nonFiltering;
+  if (ast.right?.type === "column_ref" && filter(partCols, ast.right?.column)) return nonFiltering;
   if (!ast.left || !ast.right) return ast;
-  return { ...ast, left: filterByPartsOnly(ast.left, partCols), right: filterByPartsOnly(ast.right, partCols) };
+  return { ...ast, left: filterParts(ast.left, partCols, filter), right: filterParts(ast.right, partCols, filter) };
 }
 
-export function makePartitionSpecificAST(ast: AST, partitionColumns: string[]): AST {
-  if (!ast) return ast;
-  return filterByPartsOnly(ast, partitionColumns);
+export function makePartitionSpecificAST(ast: AST | undefined, partitionColumns: string[]): AST | undefined {
+  if (!ast) return;
+  return filterParts(ast, partitionColumns, nonPartFilter);
 }
 
-export function getSQLWhereStringFromAST(where: AST): string {
+export function makeSelectSpecificAST(ast: AST | undefined, partitionColumns: string[]): AST | undefined {
+  if (!ast) return;
+  return filterParts(ast, partitionColumns, partFilter);
+}
+
+export function getSQLWhereStringFromAST(where: AST | undefined): string {
   const parser = new Parser();
   return parser
     .sqlify(
@@ -93,6 +108,14 @@ export function getSQLWhereStringFromAST(where: AST): string {
     .substring(25);
 }
 
+function replaceWhereInSQL(sql: string, newWhere: AST | undefined): string {
+  if (!newWhere) return sql;
+  const [plainSql] = getPlainSQLAndExpr(sql);
+  const parser = new Parser();
+  const ast = parser.astify(plainSql, nodeSqlParserOpts);
+  return parser.sqlify(<Select>{ ...ast, where: newWhere }, nodeSqlParserOpts).replace(/`/g, "");
+}
+
 export function getSQLLimit(sql: string): number {
   const [plainSql] = getPlainSQLAndExpr(sql);
   const found = plainSql.match(/LIMIT\s+(\d+)/im);
@@ -103,6 +126,10 @@ export function setSQLLimit(sql: string, limit: number): string {
   return getPlainSQLAndExpr(sql)[0].replace(/LIMIT\s+(\d+)/im, () => `LIMIT ${limit}`);
 }
 
-export function getSQLWhereString(expression: string, partitionColumns: string[]): string {
+export function getPartsOnlySQLWhereString(expression: string, partitionColumns: string[]): string {
   return getSQLWhereStringFromAST(makePartitionSpecificAST(getSQLWhereAST(expression), partitionColumns));
+}
+
+export function getNonPartsSQL(expression: string, partitionColumns: string[]): string {
+  return replaceWhereInSQL(expression, makeSelectSpecificAST(getSQLWhereAST(expression), partitionColumns));
 }

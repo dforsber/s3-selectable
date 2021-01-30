@@ -1,22 +1,29 @@
 import {
-  IS3Selectable,
-  IS3selectableNonClass,
-  ISelectObjectContent,
-  PartialBy,
-  TEvents,
-  TS3SelectaParams,
+  IExplainSelect,
+  IPreparedSelect,
+  ISelect,
+  TS3SelectObjectContent,
+  TS3SelectObjectContentVerified,
   TS3electObjectContentVerified,
-  TSelectParamsVerified,
-  defaultS3SelectParms,
-} from "./types";
-import { InputSerialization, SelectObjectContentCommandInput } from "@aws-sdk/client-s3";
-import { getSQLLimit, getSQLWhereString, getTableAndDbAndExpr, setSQLLimit } from "../utils/sql-query.helper";
+} from "./select-types";
+import { InputSerialization, S3, SelectObjectContentCommandInput } from "@aws-sdk/client-s3";
+import { TEvents, defaultS3SelectParms } from "./select-types";
+import { getNonPartsSQL, getPartsOnlySQLWhereString, getSQLLimit, setSQLLimit } from "../utils/sql-query.helper";
 import stream, { Readable } from "stream";
 
+import { Glue } from "@aws-sdk/client-glue";
 import { GlueTableToS3Key } from "../mappers/glueTableToS3Keys.mapper";
 import { PartitionPreFilter } from "../utils/partition-filterer";
 import { createLogger } from "bunyan";
 import mergeStream from "merge-stream";
+
+export interface IS3Selectable {
+  tableName: string;
+  databaseName: string;
+  glue: Glue;
+  s3: S3;
+  logLevel?: "trace" | "debug" | "info" | "warn" | "error" | "fatal"; // Match with Bunyan
+}
 
 export class S3Selectable {
   private logger = createLogger({ name: "s3-selectable", level: this.props.logLevel ?? "info" });
@@ -32,26 +39,47 @@ export class S3Selectable {
     tableName: this.props.tableName,
   });
 
-  constructor(private props: IS3Selectable) {}
+  constructor(public props: IS3Selectable) {}
 
-  public async select(params: ISelectObjectContent): Promise<stream> {
+  public async select(params: ISelect): Promise<stream> {
+    return this.executeSelect(await this.prepareSelect(params));
+  }
+
+  public async explainSelect(params: ISelect): Promise<IExplainSelect> {
+    this.logger.debug("explain select:", params);
+    const preparedSelect = await this.prepareSelect(params);
+    const tableInfo = await this.mapper.getTableInfo();
+    return { tableInfo, preparedSelect };
+  }
+
+  private async prepareSelect(params: ISelect): Promise<IPreparedSelect> {
     await this.cacheTableMetadata();
     const selectParamsVerified = this.getValidS3SelectParams(params.selectParams);
     const limit = getSQLLimit(selectParamsVerified.Expression);
     const s3Keys = await this.getFilteredS3Keys(selectParamsVerified.Expression, limit);
     this.logger.debug("number of S3 Keys:", s3Keys.length);
     const selectParams = this.setLimitIfNeeded(s3Keys, selectParamsVerified, limit);
+    selectParams.Expression = getNonPartsSQL(selectParams.Expression, this.partitionColumns);
+    return { ...params, limit, s3Keys, selectParams };
+  }
+
+  private async executeSelect(params: IPreparedSelect): Promise<stream> {
+    const { s3Keys, selectParams, limit } = params;
     await this.getMergedStream(s3Keys, selectParams);
     this.setHandlers({ ...params, selectParams }, limit);
     return this.merged;
   }
 
-  private setLimitIfNeeded(s3Keys: string[], params: TSelectParamsVerified, limit: number): TSelectParamsVerified {
+  private setLimitIfNeeded(
+    s3Keys: string[],
+    params: TS3SelectObjectContentVerified,
+    limit: number,
+  ): TS3SelectObjectContentVerified {
     if (s3Keys.length >= limit) return { ...params, Expression: setSQLLimit(params.Expression, 1) };
     return { ...params, Expression: setSQLLimit(params.Expression, Math.ceil(limit / s3Keys.length)) };
   }
 
-  private async getMergedStream(s3Keys: string[], s3sel: TSelectParamsVerified): Promise<void> {
+  private async getMergedStream(s3Keys: string[], s3sel: TS3SelectObjectContentVerified): Promise<void> {
     this.logger.info(s3sel.Expression);
     this.merged = mergeStream(await Promise.all(s3Keys.map((Key: string) => this.getSelectStream({ ...s3sel, Key }))));
   }
@@ -63,11 +91,11 @@ export class S3Selectable {
   }
 
   private getFilteredPartitionValues(sql: string): Promise<string[]> {
-    const whereSql = getSQLWhereString(sql, this.partitionColumns);
+    const whereSql = getPartsOnlySQLWhereString(sql, this.partitionColumns);
     return this.partitionsFilter.filterPartitions(whereSql);
   }
 
-  private getValidS3SelectParams(params: TS3SelectaParams): TSelectParamsVerified {
+  private getValidS3SelectParams(params: TS3SelectObjectContent): TS3SelectObjectContentVerified {
     const merged = { ...defaultS3SelectParms, ...params };
     if (!merged.Expression) throw new Error("S3 Select param Expression is required");
     if (merged.ExpressionType !== "SQL") {
@@ -75,6 +103,7 @@ export class S3Selectable {
     }
     return {
       ...merged,
+      Bucket: this.s3bucket,
       Expression: merged.Expression,
       ExpressionType: merged.ExpressionType,
       InputSerialization: this.inputSerialisation,
@@ -101,48 +130,19 @@ export class S3Selectable {
     };
   }
 
-  private async getSelectStream(queryParams: PartialBy<SelectObjectContentCommandInput, "Bucket">): Promise<Readable> {
-    const selStream = await this.props.s3.selectObjectContent({ ...queryParams, Bucket: this.s3bucket });
+  private async getSelectStream(queryParams: SelectObjectContentCommandInput): Promise<Readable> {
+    const selStream = await this.props.s3.selectObjectContent(queryParams);
     if (selStream.Payload === undefined) throw new Error(`No select stream for ${queryParams.Key}`);
     return stream.Readable.from(selStream.Payload, { objectMode: true });
   }
 
-  /*
-   * Increased complexity is due to fetching both getTableInfo and
-   * getPartitionValues concurrently (Promise.all) while doing caching
-   */
   public async cacheTableMetadata(): Promise<void> {
+    if (this.s3bucket) return;
     const info = await this.mapper.getTableInfo();
-    [this.s3bucket, this.partitionColumns, this.inputSerialisation] = [
-      info.Bucket,
-      info.PartitionColumns,
-      info.InputSerialization,
-    ];
     const partitionValues = await this.mapper.getPartitionValues();
-    this.partitionsFilter = this.partitionsFilter
-      ? this.partitionsFilter
-      : new PartitionPreFilter(partitionValues, this.partitionColumns);
+    this.partitionColumns = info.PartitionColumns;
+    this.inputSerialisation = info.InputSerialization;
+    this.partitionsFilter = new PartitionPreFilter(partitionValues, this.partitionColumns);
+    this.s3bucket = info.Bucket;
   }
-}
-
-/*
- * Alternative, non-class based interface that does not do any caching of Table data. We recommend
- * to use the class based interface for latency aware use cases where multiple S3 Select commands
- * are run over the same table and in cases where the class can be instantiated beforehand to fill
- * up the cache.
- */
-export async function s3selectableNonClass(params: IS3selectableNonClass): Promise<Uint8Array[]> {
-  const { s3, glue } = params;
-  const [databaseName, tableName, expr] = getTableAndDbAndExpr(params.sql);
-  const Expression = params.sql.replace(`${databaseName}.${tableName}`, `s3Object${expr}`);
-  const selectable = new S3Selectable({ databaseName, tableName, s3, glue });
-  const data: Uint8Array[] = await new Promise(resolve => {
-    const chunks: Uint8Array[] = [];
-    selectable.select({
-      selectParams: { ...params, Expression },
-      onDataHandler: chunk => chunks.push(chunk),
-      onEndHandler: () => resolve(chunks),
-    });
-  });
-  return data;
 }

@@ -1,4 +1,4 @@
-import { getPartitionKeyValue, PartitionPreFilter } from "./partition-filterer";
+import { PartitionPreFilter, getPartitionKeyValue } from "./partition-filterer";
 
 const partCols = ["year", "month"];
 

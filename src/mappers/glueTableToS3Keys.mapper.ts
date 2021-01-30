@@ -1,8 +1,11 @@
-import { errors } from "../common/errors.enum";
-import { GetPartitionsRequest, Partition, StorageDescriptor, Table } from "@aws-sdk/client-glue";
-import { S3KeysCache } from "../utils/s3KeysCache";
+import { GetPartitionsRequest, Partition, Table } from "@aws-sdk/client-glue";
+import { notUndefined, verifiedPartition } from "../common/helpers";
+
+import { IS3Selectable } from "../s3-selectable/s3-selectable";
 import { InputSerialization } from "@aws-sdk/client-s3";
-import { IS3Selectable, PartialBy } from "../s3-selectable/types";
+import { PartialBy } from "../s3-selectable/select-types";
+import { S3KeysCache } from "../utils/s3KeysCache";
+import { errors } from "../common/errors.enum";
 
 export interface ITableInfo {
   Bucket: string;
@@ -21,32 +24,42 @@ export class GlueTableToS3Key {
   private inputSerialization!: InputSerialization | undefined;
   private tableBucket!: string;
   private partitions!: Partition[];
-  private partitionColumns!: string[];
+  private partCols!: string[];
   private s3KeysFetcher = new S3KeysCache(this.params.s3);
 
   constructor(private params: PartialBy<IS3Selectable, "s3" | "glue">) {}
 
   public async getTable(): Promise<Table> {
     if (this.table) return this.table;
-    if (!this.params.glue) throw new Error(errors.noGlue);
-    const [DatabaseName, Name] = [this.params.databaseName, this.params.tableName];
-    const table = (await this.params.glue.getTable({ DatabaseName, Name })).Table;
-    if (!table) throw new Error(`Table not found: ${Name}`);
-    const tableLocation = table.StorageDescriptor?.Location;
-    if (!tableLocation) throw new Error(`No S3 Bucket found for table ${Name}`);
-    this.tableLocation = tableLocation;
-    this.inputSerialization = this.getInputSerialisation(table.StorageDescriptor);
+    this.table = await this.getDefinedTable();
+    this.tableLocation = await this.getDefinedTableLocation();
+    this.inputSerialization = await this.getInputSerialisation();
     this.tableBucket = this.s3KeysFetcher.getBucketAndPrefix(this.tableLocation).Bucket;
-    this.partitionColumns = table.PartitionKeys?.map(col => col.Name || "").filter(e => e) ?? [];
-    this.table = table;
+    this.partCols = this.table.PartitionKeys?.map(col => col.Name).filter(notUndefined) ?? [];
     return this.table;
   }
 
+  private async getDefinedTable(): Promise<Table> {
+    if (this.table) return this.table;
+    if (!this.params.glue) throw new Error(errors.noGlue);
+    const { databaseName: DatabaseName, tableName: Name } = this.params;
+    const table = (await this.params.glue.getTable({ DatabaseName, Name })).Table;
+    if (!table) throw new Error(`Table not found: ${Name}`);
+    return table;
+  }
+
+  private async getDefinedTableLocation(): Promise<string> {
+    await this.getDefinedTable();
+    const tableLocation = this.table.StorageDescriptor?.Location;
+    if (!tableLocation) throw new Error(`No S3 Bucket found for table ${this.params.tableName}`);
+    return tableLocation;
+  }
+
   public async getTableInfo(): Promise<ITableInfo> {
-    if (!this.tableBucket || !this.partitionColumns) await this.getTable();
+    if (!this.tableBucket || !this.partCols) await this.getTable();
     return {
       Bucket: this.tableBucket,
-      PartitionColumns: this.partitionColumns,
+      PartitionColumns: this.partCols,
       InputSerialization: this.inputSerialization,
     };
   }
@@ -55,43 +68,43 @@ export class GlueTableToS3Key {
     await this.getTable();
     await this.getPartitions();
     const partitionLocs = this.partitions
-      .map(p => ({
-        ...p,
-        Value: this.partitionColumns.reduce((a, c, i) => `${a}/${c}=${p.Values ? p.Values[i] : "ValueUndefined"}`, ""),
-      }))
-      .filter(p => values.length <= 0 || values.some(v => v.includes(p.Value)))
-      .map(p => p.StorageDescriptor?.Location)
-      .filter(l => !!l);
-    const keys = await Promise.all(partitionLocs.map(loc => this.s3KeysFetcher.getKeys(<string>loc)));
+      .filter(verifiedPartition)
+      .map(p => ({ ...p, colStr: this.getPartColsString(p.Values) }))
+      .filter(p => values.length <= 0 || values.some(v => v.includes(p.colStr)))
+      .map(p => p.StorageDescriptor.Location)
+      .filter(notUndefined);
+    const keys = await Promise.all(partitionLocs.map(loc => this.s3KeysFetcher.getKeys(loc)));
     return keys.reduce((acc, curr) => [...acc, ...curr], []);
   }
 
   public async getPartitions(): Promise<Partition[]> {
     if (this.partitions) return this.partitions;
     if (!this.params.glue) throw new Error(errors.noGlue);
-    const params = { DatabaseName: this.params.databaseName, TableName: this.params.tableName };
+    const { databaseName: DatabaseName, tableName: TableName } = this.params;
+    const params: GetPartitionsRequest = { DatabaseName, TableName };
     this.partitions = [];
-    let token: string | undefined;
     do {
-      const p: GetPartitionsRequest = token ? { ...params, NextToken: token } : params;
-      const { Partitions, NextToken } = await this.params.glue.getPartitions(p);
-      if (!Partitions) return [];
-      this.partitions.push(...Partitions);
-      token = NextToken;
-    } while (token);
+      const { Partitions, NextToken } = await this.params.glue.getPartitions(params);
+      if (Partitions) this.partitions.push(...Partitions);
+      params.NextToken = NextToken;
+    } while (params.NextToken);
     return this.partitions;
+  }
+
+  private getPartColsString(values: string[]): string {
+    return this.partCols.reduce((a, c, i) => `${a}/${c}=${values[i]}`, "");
   }
 
   public async getPartitionValues(): Promise<string[]> {
     await this.getTable();
     await this.getPartitions();
-    return this.partitions
-      .map(p => p.Values)
-      .map(v => this.partitionColumns.reduce((a, c, i) => `${a}/${c}=${v ? v[i] : "ValueUndefined"}`, ""));
+    return this.partitions.filter(verifiedPartition).map(p => this.getPartColsString(p.Values));
   }
 
   // This is rudimentary and assumes e.g. that CSV files are GZIP compressed.
-  private getInputSerialisation(desc?: StorageDescriptor): InputSerialization | undefined {
+  private async getInputSerialisation(): Promise<InputSerialization | undefined> {
+    await this.getDefinedTable();
+    const desc = this.table.StorageDescriptor;
     if (!desc?.SerdeInfo?.SerializationLibrary) return;
     const serLib = desc.SerdeInfo.SerializationLibrary.toLowerCase();
     if (serLib.includes("json")) return { JSON: { Type: "DOCUMENT" } };
