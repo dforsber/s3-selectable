@@ -174,3 +174,5 @@ If the Glue Table is sorted, partitioned and/or bucketed into a proper sized S3 
 - Please note that the [maximum uncompressed row group size is 256MB for Parquet](https://docs.aws.amazon.com/AmazonS3/latest/dev/selecting-content-from-objects.html) files with S3 Select.
 
 - S3 Select does not support `Map<>` columns with Parquet files. Thus, instead of e.g. doing "SELECT \* FROM", select columns explicitly and do not include columns with `Map<>` types.
+
+- s3-selectable does not filter out folder marking files like `year=__HIVE_DEFAULT_PARTITION___$folder$`, but will try to run S3 Select over them and return an error. Use `EXPLAIN SELECT` to see the list of S3 Keys that are used to find out if your query will hit any of these marker files etc.
