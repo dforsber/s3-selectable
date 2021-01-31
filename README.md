@@ -110,11 +110,7 @@ SELECT * FROM logs WHERE year>=2019 AND month>=12
 
 s3-selectable supports `EXPLAIN SELECT`, which produces a list of S3 Keys and prepared S3 Select parameters that will be used to stream the results. This is a nice way to investigate Glue Tables and their data on S3 as well. Using `LIMIT` can be used to reduce down the number of partitions and thus S3 Keys that are used to run S3 Select against. The output also shows, which SQL statement is used for partition filtering (`partitionFilter`) and which statement is used with S3 Select (`preparedSelect`).
 
-As an example running `explainSelect()` with a query like this:
-
-```sql
-SELECT * FROM default.nyctaxis WHERE year=2016 AND month=10 LIMIT 2
-```
+As an example running `explainSelect({ Expression: 'SELECT * FROM default.nyctaxis WHERE year=2016 AND month=10 LIMIT 2' })` returns something similar to this:
 
 returns:
 
