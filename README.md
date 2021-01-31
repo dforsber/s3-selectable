@@ -137,8 +137,8 @@ returns:
       },
       "limit": 2,
       "s3Keys": [
-        "NY-Pub/year=2016/month=10/type=yellow/part-r-03310-6e222bd6-47be-424a-a29a-606961a23de1.gz.parquet",
-        "NY-Pub/year=2016/month=10/type=yellow/part-r-03310-90b05037-c70b-4bc7-978c-b53b496c4751.gz.parquet"
+        "NY-Pub/year=2016/month=10/type=yellow/part-r-03310-6e222bd6.gz.parquet",
+        "NY-Pub/year=2016/month=10/type=yellow/part-r-03310-90b05037.gz.parquet"
       ]
     },
     "partitionFilter": "SELECT partition FROM partitions WHERE `year` = 2016 AND `month` = 10"
