@@ -112,8 +112,6 @@ s3-selectable supports `EXPLAIN SELECT`, which produces a list of S3 Keys and pr
 
 As an example running `explainSelect({ Expression: 'SELECT * FROM default.nyctaxis WHERE year=2016 AND month=10 LIMIT 2' })` returns something similar to this:
 
-returns:
-
 ```json
 {
   "selectParams": {
