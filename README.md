@@ -120,7 +120,7 @@ s3-selectable supports `EXPLAIN SELECT`, which produces a list of S3 Keys and pr
   },
   explainSelectResult: {
     tableInfo: {
-      Bucket: 'isecurefi-serverless-analytics',
+      Bucket: 'serverless-analytics',
       PartitionColumns: [ 'year', 'month', 'type' ],
       InputSerialization: { Parquet: {} }
     },
