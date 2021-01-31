@@ -64,7 +64,7 @@ export class GlueTableToS3Key {
     };
   }
 
-  public async getKeysByPartitions(values: string[]): Promise<string[]> {
+  public async getKeysByFilteredPartitions(values: string[]): Promise<string[]> {
     await this.getTable();
     await this.getPartitions();
     const partitionLocs = this.partitions
@@ -95,16 +95,16 @@ export class GlueTableToS3Key {
     return this.partCols.reduce((a, c, i) => `${a}/${c}=${values[i]}`, "");
   }
 
-  public async getPartitionValues(): Promise<string[]> {
+  public async getPartitionsAsPaths(): Promise<string[]> {
     await this.getTable();
     await this.getPartitions();
     return this.partitions.filter(verifiedPartition).map(p => this.getPartColsString(p.Values));
   }
 
   // This is rudimentary and assumes e.g. that CSV files are GZIP compressed.
-  private async getInputSerialisation(): Promise<InputSerialization | undefined> {
+  public async getInputSerialisation(): Promise<InputSerialization | undefined> {
     await this.getDefinedTable();
-    const desc = this.table.StorageDescriptor;
+    const desc = this.table?.StorageDescriptor;
     if (!desc?.SerdeInfo?.SerializationLibrary) return;
     const serLib = desc.SerdeInfo.SerializationLibrary.toLowerCase();
     if (serLib.includes("json")) return { JSON: { Type: "DOCUMENT" } };

@@ -44,4 +44,5 @@ export interface IPreparedSelect extends TS3electObjectContentVerified {
 export interface IExplainSelect {
   tableInfo: ITableInfo;
   preparedSelect: IPreparedSelect;
+  partitionFilter: string;
 }

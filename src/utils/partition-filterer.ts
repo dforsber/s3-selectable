@@ -7,14 +7,16 @@ export function getPartitionKeyValue(partition: string, partCol: string): string
   return p.split("/").shift();
 }
 
-function sqliteRun(db: Database, sql: string, params: string[] = []): Promise<void> {
+export function sqliteRun(db: Database | undefined, sql: string, params: string[] = []): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (!db) return reject(new Error("sqliteRun: undefined db"));
     db.run(sql, params, err => (err ? reject(err) : resolve()));
   });
 }
 
-function sqliteAll(db: Database, sql: string): Promise<unknown[]> {
+export function sqliteAll(db: Database | undefined, sql: string): Promise<unknown[]> {
   return new Promise((resolve, reject) => {
+    if (!db) return reject(new Error("sqliteAll: undefined db"));
     db.all(sql, (err, rows) => (err ? reject(err) : resolve(rows)));
   });
 }
@@ -48,9 +50,13 @@ export class PartitionPreFilter {
 
   public async filterPartitions(where: string | null | undefined): Promise<string[]> {
     if (!where) return this.parts;
-    const db = await this.partsTable;
+    const db = await this.getDb();
     if (!db) return this.parts;
     const rows = <Array<{ partition: string }>>await sqliteAll(db, `SELECT partition FROM partitions ${where}`);
     return rows.map(row => row.partition);
+  }
+
+  public getDb(): Promise<Database | undefined> {
+    return this.partsTable;
   }
 }

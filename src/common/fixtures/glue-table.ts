@@ -543,6 +543,11 @@ export const testTableWithoutStorageLocation = {
   StorageDescriptor: { ...testTableParquet.StorageDescriptor, Location: undefined },
 };
 
+export const testTableWithoutStorageSerde = {
+  ...testTableParquet,
+  StorageDescriptor: { ...testTableParquet.StorageDescriptor, SerdeInfo: undefined },
+};
+
 export const testTableWithoutPartitionKeys = {
   ...testTableParquet,
   PartitionKeys: undefined,

@@ -1,7 +1,10 @@
 import { errors } from "../common/errors.enum";
 import { ListObjectsV2Request } from "@aws-sdk/client-s3";
 import { S3 } from "@aws-sdk/client-s3";
-import { notUndefined } from "../common/helpers";
+
+function notUndefined<T>(x: T | undefined): x is T {
+  return x !== undefined;
+}
 
 export class S3KeysCache {
   private cachedKeys: Map<string, string[]> = new Map();
@@ -13,7 +16,7 @@ export class S3KeysCache {
     const params: ListObjectsV2Request = this.getBucketAndPrefix(location);
     const keys: string[] = [];
     do {
-      const { Contents, NextContinuationToken } = await this.s3.listObjectsV2(params);
+      const { Contents, NextContinuationToken } = { ...(await this.s3.listObjectsV2(params)) };
       keys.push(...(Contents ?? []).map(k => k.Key).filter(notUndefined));
       params.ContinuationToken = NextContinuationToken;
     } while (params.ContinuationToken);

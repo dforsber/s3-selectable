@@ -164,10 +164,10 @@ describe("Test selectObjectContent", () => {
     expect(selectObjectContent).toEqual(20); // 2 * 10 objects
     const rows = await new Promise(r => {
       const rows: string[] = [];
-      rowsStream.on("data", chunk => {
+      rowsStream?.on("data", chunk => {
         if (chunk?.Records?.Payload) rows.push(Buffer.from(chunk.Records.Payload).toString());
       });
-      rowsStream.on("end", () => r(rows));
+      rowsStream?.on("end", () => r(rows));
     });
     expect(rows).toMatchInlineSnapshot(`
       Array [
@@ -195,6 +195,53 @@ describe("Test selectObjectContent", () => {
     `);
   });
 
+  it("explain select works in case of filtering does not produce any keys", async () => {
+    const sql = "SELECT * FROM db.t WHERE elb_response_code='nonsense' AND ssl_protocol='badInput'";
+    const selectable = getS3Selectable();
+    const res = await selectable.explainSelect({
+      selectParams: { Expression: sql },
+    });
+    expect(res).toMatchInlineSnapshot(`
+      Object {
+        "partitionFilter": "SELECT partition FROM partitions WHERE \`elb_response_code\` = 'nonsense' AND \`ssl_protocol\` = 'badInput'",
+        "preparedSelect": Object {
+          "limit": 0,
+          "s3Keys": Array [],
+          "selectParams": Object {
+            "Bucket": "dummy-test-bucket",
+            "Expression": "SELECT * FROM db.t WHERE TRUE AND TRUE",
+            "ExpressionType": "SQL",
+            "InputSerialization": Object {
+              "Parquet": Object {},
+            },
+            "OutputSerialization": Object {
+              "JSON": Object {},
+            },
+          },
+        },
+        "tableInfo": Object {
+          "Bucket": "dummy-test-bucket",
+          "InputSerialization": Object {
+            "Parquet": Object {},
+          },
+          "PartitionColumns": Array [
+            "ssl_protocol",
+            "elb_response_code",
+          ],
+        },
+      }
+    `);
+  });
+
+  it("select works in case of filtering does not produce any keys", async () => {
+    const sql = "SELECT * FROM db.t WHERE elb_response_code='nonsense' AND ssl_protocol='badInput'";
+    const selectable = getS3Selectable();
+    const res = await selectable.select({
+      selectParams: { Expression: sql },
+    });
+    expect(res).toBe(undefined);
+  });
+
   it("explain select works", async () => {
     const sql = "SELECT * FROM db.t WHERE elb_response_code='302' AND ssl_protocol='-'";
     const selectable = getS3Selectable();
@@ -203,6 +250,7 @@ describe("Test selectObjectContent", () => {
     });
     expect(res).toMatchInlineSnapshot(`
       Object {
+        "partitionFilter": "SELECT partition FROM partitions WHERE \`elb_response_code\` = '302' AND \`ssl_protocol\` = '-'",
         "preparedSelect": Object {
           "limit": 0,
           "s3Keys": Array [
