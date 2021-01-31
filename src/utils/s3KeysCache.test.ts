@@ -18,6 +18,12 @@ jest.mock("@aws-sdk/client-s3", () => ({
             Contents: testTableKeysNoPartitions.map(k => ({ Key: k })),
           });
         }
+        if (params.Bucket === "dummy-test-bucket3") {
+          return Promise.resolve({
+            NextContinuationToken: undefined,
+            Contents: undefined,
+          });
+        }
         const keys = testTableKeys.filter(k => k.includes(pref)).map(k => ({ Key: k }));
         const first = keys.slice(0, keys.length / 2);
         const second = keys.slice(keys.length / 2);
@@ -109,5 +115,19 @@ describe("getBucketAndPrefix utility method", () => {
     const { Bucket, Prefix } = new S3KeysCache(s3).getBucketAndPrefix("s3://testbucket-temp");
     expect(Bucket).toEqual("testbucket-temp");
     expect(Prefix).toEqual("");
+  });
+});
+
+describe("AWS s3 sdk returns no Contents", () => {
+  beforeEach(() => {
+    s3ListObjectsV2Called = 0;
+  });
+
+  it("Works when AWS SDK returns Contents undefined (sigh)", async () => {
+    const key = "s3://dummy-test-bucket3/Unsaved/2020/05/25/";
+    const s3loc = new S3KeysCache(new S3({ region: "eu-west-1" }));
+    const keys = await s3loc.getKeys(key);
+    await expect(keys.sort()).toEqual([]);
+    expect(s3ListObjectsV2Called).toEqual(1); // using continuation token, 2 calls
   });
 });

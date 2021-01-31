@@ -11,6 +11,7 @@ import {
   testTableWithoutPartitionKeys,
   testTableWithoutStorage,
   testTableWithoutStorageLocation,
+  testTableWithoutStorageSerde,
 } from "../common/fixtures/glue-table";
 
 import { GlueTableToS3Key } from "./glueTableToS3Keys.mapper";
@@ -28,6 +29,7 @@ jest.mock("@aws-sdk/client-glue", () => ({
       getTable: jest.fn((params: GetTableRequest) => {
         glueGetTableCalled++;
         if (params.Name === "noStorage") return Promise.resolve({ Table: testTableWithoutStorage });
+        if (params.Name === "noStorageSerde") return Promise.resolve({ Table: testTableWithoutStorageSerde });
         if (params.Name === "noStorageLocation") return Promise.resolve({ Table: testTableWithoutStorageLocation });
         if (params.Name === "noPartitionKeys") return Promise.resolve({ Table: testTableWithoutPartitionKeys });
         if (params.Name === "partitioned_and_bucketed_elb_logs_parquet")
@@ -90,17 +92,27 @@ describe("Parameter and return value checks", () => {
     expect(() => mapper.getTable()).rejects.toThrowError();
     expect(() => mapper.getPartitions()).rejects.toThrowError();
   });
-  it("error handling when Glue Table is not found", async () => {
+  it("error handling when Glue Table is not found", () => {
     mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "nonExisting" });
-    await expect(async () => await mapper.getTable()).rejects.toThrowError("Table not found: nonExisting");
+    expect(() => mapper.getTable()).rejects.toThrowError("Table not found: nonExisting");
   });
-  it("no storage descriptor", async () => {
+  it("no storage descriptor", () => {
     mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "noStorage" });
-    await expect(async () => await mapper.getTable()).rejects.toThrowError();
+    expect(() => mapper.getTable()).rejects.toThrowError();
   });
-  it("no storage location", async () => {
+  it("no storage location", () => {
     mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "noStorageLocation" });
-    await expect(async () => await mapper.getTable()).rejects.toThrowError();
+    expect(() => mapper.getTable()).rejects.toThrowError();
+  });
+  it("no storage serde (inpuut serialisation)", async () => {
+    mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "noStorageSerde" });
+    const inpSer = await mapper.getInputSerialisation();
+    expect(inpSer).toBe(undefined);
+  });
+  it("no storage (inpuut serialisation)", async () => {
+    mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "noStorage" });
+    const inpSer = await mapper.getInputSerialisation();
+    expect(inpSer).toBe(undefined);
   });
   it("no partition keys", async () => {
     mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "noPartitionKeys" });
@@ -113,10 +125,10 @@ describe("Parameter and return value checks", () => {
 
 describe("When fetching partitioning information", () => {
   it("correctly lists all S3 Keys", async () => {
-    let keys = await mapper.getKeysByPartitions([]);
+    let keys = await mapper.getKeysByFilteredPartitions([]);
     expect(keys.length).toEqual(testTableKeys.length);
     expect(keys.sort()).toEqual(testTableKeys.sort());
-    keys = await mapper.getKeysByPartitions([]);
+    keys = await mapper.getKeysByFilteredPartitions([]);
     expect(keys.length).toEqual(testTableKeys.length);
     expect(keys.sort()).toEqual(testTableKeys.sort());
     expect(glueGetTableCalled).toEqual(1);
@@ -128,7 +140,7 @@ describe("When fetching partitioning information", () => {
     mapper = new GlueTableToS3Key({ glue, s3, databaseName, tableName: "noPartitionKeys" });
     const t = await mapper.getTable();
     expect(t.PartitionKeys).toEqual(undefined);
-    const keys = await mapper.getKeysByPartitions([]);
+    const keys = await mapper.getKeysByFilteredPartitions([]);
     expect(keys.length).toEqual(0);
   });
 
@@ -245,7 +257,7 @@ describe("When fetching partitioning information", () => {
   });
 
   it("getPartitionValues to return all partition values correctly", async () => {
-    expect((await mapper.getPartitionValues()).sort()).toEqual(
+    expect((await mapper.getPartitionsAsPaths()).sort()).toEqual(
       [
         "/ssl_protocol=-/elb_response_code=302",
         "/ssl_protocol=TLSv1.2/elb_response_code=500",
@@ -265,7 +277,7 @@ describe("When fetching partitioning information", () => {
   });
 
   it("getKeysByPartitions to return only matching keys", async () => {
-    const filteredKeys = (await mapper.getKeysByPartitions(["/ssl_protocol=-/elb_response_code=302"])).sort();
+    const filteredKeys = (await mapper.getKeysByFilteredPartitions(["/ssl_protocol=-/elb_response_code=302"])).sort();
     const expectedKeys = testTableKeys
       .filter(k => k.includes("ssl_protocol=-"))
       .filter(k => k.includes("elb_response_code=302"))

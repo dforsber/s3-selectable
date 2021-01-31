@@ -70,8 +70,8 @@ function nonPartFilter(partCols: string[], column: any): boolean {
 function filterParts(ast: any, partCols: string[], filter: (partCols: string[], column: any) => boolean): any {
   const nonFiltering = { type: "bool", value: true };
   if (ast.type === "column_ref") return ast;
-  if (ast.left?.type === "column_ref" && filter(partCols, ast.left?.column)) return nonFiltering;
-  if (ast.right?.type === "column_ref" && filter(partCols, ast.right?.column)) return nonFiltering;
+  if (ast.left?.type === "column_ref" && filter(partCols, ast.left.column)) return nonFiltering;
+  if (ast.right?.type === "column_ref" && filter(partCols, ast.right.column)) return nonFiltering;
   if (!ast.left || !ast.right) return ast;
   return { ...ast, left: filterParts(ast.left, partCols, filter), right: filterParts(ast.right, partCols, filter) };
 }
