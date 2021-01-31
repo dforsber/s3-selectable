@@ -108,6 +108,43 @@ NOTE: _Before filtering, all non-partition based clauses are set to TRUE. The SQ
 SELECT * FROM logs WHERE year>=2019 AND month>=12
 ```
 
+s3-selectable supports `EXPLAIN SELECT`, which produces a list of S3 Keys and prepared S3 Select parameters that will be used to stream the results. This is a nice way to investigate Glue Tables and their data on S3 as well. Using `LIMIT` can be used to reduce down the number of partitions and thus S3 Keys that are used to run S3 Select against. The output also shows, which SQL statement is used for partition filtering (`partitionFilter`) and which statement is used with S3 Select (`preparedSelect`).
+
+```shell
+> EXPLAIN SELECT * FROM default.nyctaxis WHERE year=2016 AND month=10 LIMIT 2
+< {
+  selectParams: {
+    selectParams: {
+      Expression: ' SELECT * FROM s3Object WHERE year=2016 AND month=10 LIMIT 2'
+    }
+  },
+  explainSelectResult: {
+    tableInfo: {
+      Bucket: 'isecurefi-serverless-analytics',
+      PartitionColumns: [ 'year', 'month', 'type' ],
+      InputSerialization: { Parquet: {} }
+    },
+    preparedSelect: {
+      selectParams: {
+        ExpressionType: 'SQL',
+        OutputSerialization: { JSON: {} },
+        Expression: 'SELECT * FROM s3Object WHERE TRUE AND TRUE LIMIT 1',
+        Bucket: 'isecurefi-serverless-analytics',
+        InputSerialization: { Parquet: {} }
+      },
+      limit: 2,
+      s3Keys: [
+        'NY-Pub/year=2016/month=10/type=yellow/part-r-03310-6e222bd6-47be-424a-a29a-606961a23de1.gz.parquet',
+        'NY-Pub/year=2016/month=10/type=yellow/part-r-03310-90b05037-c70b-4bc7-978c-b53b496c4751.gz.parquet'
+      ]
+    },
+    partitionFilter: 'SELECT partition FROM partitions WHERE `year` = 2016 AND `month` = 10'
+  }
+}
+< Execution time 893 ms, 0.000 MB, 0.000 MB/s
+>
+```
+
 ## Scalability with Parquet
 
 If the Glue Table is sorted, partitioned and/or bucketed into a proper sized S3 Objects in Parquet, running this module with filters against the sorted column (e.g. row numbers for paging) will give high performance in terms of low latency and high data throughput. S3 Select is a pushdown closer to where the data is stored and supports thousands of concurrent API calls. This allows processing tables that map to huge amounts of data.
