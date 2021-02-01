@@ -6,6 +6,12 @@
 
 This module runs parallel [S3 Select](https://aws.amazon.com/blogs/developer/introducing-support-for-amazon-s3-select-in-the-aws-sdk-for-javascript/) over all the S3 Keys of a [Glue Table](https://docs.aws.amazon.com/glue/latest/dg/tables-described.html) and returns a single [merged event stream](https://github.com/grncdr/merge-stream). The API with parameter `selectParams` is the same as for [S3 Select NodeJS SDK (`S3.selectObjectContent`)](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#selectObjectContent-property), i.e. params are passed through, but `Bucket` and `Key` are replaced from values for the Glue Table S3 Data. Additionally, `ExpressionType` is optional and defaults to `SQL`, `InputSerialization` is deducted from Glue Table serde if not provided, and `OutputSerialization` defaults to `JSON`.
 
+```shell
+yarn add @dforsber/s3-selectable
+```
+
+> **NOTE**: The best way to play with s3-selectable is to use [@dforsber/s3-selectable-cli](https://github.com/dforsber/s3-selectable-cli). With it you can deploy s3-selectable as an AWS Lambda behind a WebSocket and use interactive client like [wscat](https://github.com/websockets/wscat) with IAM authenticated connection.
+
 Additional optional parameters include `onEventHandler()`, `onDataHandler()`, and `onEndHandler()`. `onEventHandler()` is called for every S3 SELECT stream event (like `End`, `Status` etc). `onDataHandler()` is called only for data (`Records.Payload`) in `Uint8Array` format. `onEndHandler()` is called once, once the merged stream ends, which makes it easier to e.g. resolve Promise as in the example below. For now, `onEventHandler()` is provided for convenience if you don't want to tap to the merged stream directly.
 
 ```javascript
@@ -18,10 +24,6 @@ export interface ISelect {
 ```
 
 SQL `LIMIT N` is supported and only `N` resulting objects are passed back for the `onDataHandler()`. If the number of S3 Keys is more than `N`, only the `N` S3 Keys are used with actual SQL `LIMIT 1`. If the limit `N` is larger than the number of S3 Keys, then `LIMIT <ceil(limit/s3Keys)>` is used. This reduces the streaming/scanning of data.
-
-```shell
-yarn add @dforsber/s3-selectable
-```
 
 [Javascript example](integration-tests/example.js) below. [Typescript example](integration-tests/example.ts) also in the repo.
 
