@@ -60,6 +60,9 @@ async function main() {
     Expression: "SELECT _1, _2 FROM s3Object LIMIT 42",
   };
 
+  // explain select
+  console.log(await selectable.explainSelect({ selectParams }));
+
   // NOTE: Returns Promise that resolves to the stream handle
   //return selectable.select(selectParams, onData, onEnd);
 
