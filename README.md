@@ -163,11 +163,9 @@ If the Glue Table is sorted, partitioned and/or bucketed into a proper sized S3 
 
 - For sorted tables with Parquet files, cache also Parquet metadata and filter out S3 files that do not match with filtering criteria. This reduces the number of concurrent API calls, whilst improving scalability futhermore with big data tables
 
-- Use scan range for row based file formats to improve performance
-
 - `sqlite3` is used to pre-filter partitions. In general, SQLite could be used to do stream post-filtering to allow taking benefit of all SQLite features (like regexps). However, this is closer to reading data directly from S3 without S3 Select. The benefit with S3 Select is that it can filter out vast amounts of data for you in parallel and thus does not congest your IO.
 
-- S3 select supports [scan range](https://docs.aws.amazon.com/AmazonS3/latest/API/API_SelectObjectContent.html#AmazonS3-SelectObjectContent-request-ScanRange), so it is possible to parallalize multiple S3 Selects against single S3 Object. Using scan range is good for row based formats like CSV and JSON. This module does not use scan ranges as it is mainly targeted for Parquet file use cases ("indexed big data").
+- Use scan range for row based file formats to improve performance. S3 select supports [scan range](https://docs.aws.amazon.com/AmazonS3/latest/API/API_SelectObjectContent.html#AmazonS3-SelectObjectContent-request-ScanRange), so it is possible to parallalize multiple S3 Selects against single S3 Object. Using scan range is good for row based formats like CSV and JSON. This module does not use scan ranges as it is mainly targeted for Parquet file use cases ("indexed big data").
 
 ### Known issues
 
