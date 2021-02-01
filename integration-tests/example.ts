@@ -1,4 +1,4 @@
-import { IS3selectableNonClass, S3Selectable, s3selectableNonClass } from "@dforsber/s3-selectable";
+import { IS3selectableNonClass, S3Selectable, S3SelectableNonClass } from "@dforsber/s3-selectable";
 
 import { Glue } from "@aws-sdk/client-glue";
 import { S3 } from "@aws-sdk/client-s3";
@@ -24,10 +24,15 @@ async function classBasedExample(): Promise<void> {
     logLevel: "debug",
   });
 
+  const selectParams = { Expression: "SELECT _1, _2 FROM S3Object LIMIT 42" };
+
+  // "EXPLAIN SELECT"
+  console.log(await selectable.explainSelect({ selectParams }));
+
   // Returns only when the stream ends
   await new Promise<void>(resolve =>
     selectable.select({
-      selectParams: { Expression: "SELECT _1, _2 FROM S3Object LIMIT 42" },
+      selectParams,
       onEventHandler: event => (!event.Records ? console.log(event) : undefined),
       onDataHandler: writeDataOut,
       onEndHandler: resolve,
@@ -38,7 +43,7 @@ async function classBasedExample(): Promise<void> {
 async function nonClassBasedExample(): Promise<void> {
   // NOTE: Gathers the whole stream into memory and then dumps it out
   const sql = "SELECT _1, _2 FROM default.partitioned_elb_logs LIMIT 42";
-  const data = await s3selectableNonClass(getCommonParams(sql));
+  const data = await S3SelectableNonClass(getCommonParams(sql));
   const concatTwoCols = obj => obj._1.concat(obj._2);
   data.map(d => writeDataOut(d, concatTwoCols));
 }
