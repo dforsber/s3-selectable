@@ -242,53 +242,53 @@ describe("SQL WHERE clauses", () => {
         left: {
           left: {
             left: {
-              column: "year",
-              table: null,
-              type: "column_ref",
+              left: {
+                column: "year",
+                table: null,
+                type: "column_ref",
+              },
+              operator: "<=",
+              right: {
+                type: "number",
+                value: 2020,
+              },
+              type: "binary_expr",
             },
-            operator: "<=",
+            operator: "AND",
             right: {
-              type: "number",
-              value: 2020,
+              left: {
+                column: "month",
+                table: null,
+                type: "column_ref",
+              },
+              operator: ">=",
+              right: {
+                type: "number",
+                value: 2,
+              },
+              type: "binary_expr",
             },
             type: "binary_expr",
           },
           operator: "AND",
+          parentheses: true,
           right: {
             left: {
-              column: "month",
+              column: "title",
               table: null,
               type: "column_ref",
             },
-            operator: ">=",
+            operator: "=",
             right: {
-              type: "number",
-              value: 2,
+              type: "single_quote_string",
+              value: "hello",
             },
             type: "binary_expr",
           },
           type: "binary_expr",
         },
-        operator: "AND",
-        parentheses: true,
+        operator: "OR",
         right: {
-          left: {
-            column: "title",
-            table: null,
-            type: "column_ref",
-          },
-          operator: "=",
-          right: {
-            type: "string",
-            value: "hello",
-          },
-          type: "binary_expr",
-        },
-        type: "binary_expr",
-      },
-      operator: "OR",
-      right: {
-        left: {
           left: {
             left: {
               column: "year",
@@ -319,12 +319,12 @@ describe("SQL WHERE clauses", () => {
           },
           type: "binary_expr",
         },
-        operator: "AND",
-        right: {
-          type: "bool",
-          value: true,
-        },
         type: "binary_expr",
+      },
+      operator: "AND",
+      right: {
+        type: "bool",
+        value: true,
       },
       type: "binary_expr",
     };

@@ -98,7 +98,7 @@ export function getNonClassParams(sql = ""): IS3selectableNonClass {
   return { sql, s3: new S3(region), glue: new Glue(region) };
 }
 
-describe("Non-class based s3selectable returns correct results", () => {
+describe.only("Non-class based s3selectable returns correct results", () => {
   beforeEach(() => {
     glueGetTableCalled = 0;
     glueGetPartitionsCalled = 0;
@@ -107,7 +107,7 @@ describe("Non-class based s3selectable returns correct results", () => {
   });
 
   it("valid output", async () => {
-    const table = "default.partitioned_and_bucketed_elb_logs_parquet";
+    const table = "`default`.`partitioned_and_bucketed_elb_logs_parquet`";
     const sql = `SELECT * FROM ${table} WHERE elb_response_code='302' AND ssl_protocol='-'`;
     const rows = await S3SelectableNonClass(getNonClassParams(sql));
     expect(glueGetTableCalled).toEqual(1);
@@ -141,7 +141,7 @@ describe("Non-class based s3selectable returns correct results", () => {
   });
 
   it("no data payload", async () => {
-    const table = "default.partitioned_and_bucketed_elb_logs_parquet";
+    const table = "`default`.`partitioned_and_bucketed_elb_logs_parquet`";
     const sql = `SELECT * FROM ${table} WHERE noData='true'`;
     const rows = await S3SelectableNonClass(getNonClassParams(sql));
     expect(rows).toEqual([]);
