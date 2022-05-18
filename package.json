@@ -45,7 +45,7 @@
     "@aws-sdk/client-s3": "^3.2.0",
     "bunyan": "^1.8.15",
     "merge-stream": "^2.0.0",
-    "node-sql-parser": "^1.11.0",
+    "pgsql-ast-parser": "^6.3.2",
     "sqlite3": "^5.0.0"
   },
   "devDependencies": {

@@ -35,12 +35,7 @@ describe("it getting db and table from SQL clause", () => {
     );
   });
   it("Single table FROM only", () => {
-    expect(() => getTableAndDbAndExpr("SELECT * FROM db.t AS t, db2.t2 as t2")).toThrowError(
-      "Only single table sources supported for now",
-    );
-  });
-  it("No FROM DUAL", () => {
-    expect(() => getTableAndDbAndExpr("SELECT * FROM DUAL")).toThrowError("DUAL not supported");
+    expect(() => getTableAndDbAndExpr("SELECT * FROM db.t AS t, db2.t2 as t2")).toThrowError();
   });
   it("Both db and table must be given", () => {
     expect(() => getTableAndDbAndExpr("SELECT * FROM t")).toThrowError("Both db and table needed");
@@ -102,8 +97,8 @@ describe("ensuring JSON table queries work too", () => {
   });
 });
 
-describe("S3 Select SQL clauses", () => {
-  it("changes partition column filters to TRUE (partition filtering has already been done)", () => {
+describe.only("S3 Select SQL clauses", () => {
+  it.only("changes partition column filters to TRUE (partition filtering has already been done)", () => {
     const sql = "SELECT * FROM s3Object WHERE part=0";
     const expected = "SELECT * FROM s3Object WHERE TRUE";
     expect(getNonPartsSQL(sql, ["part"])).toEqual(expected);
