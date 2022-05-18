@@ -1,4 +1,4 @@
-import { AST, From, Parser, Select } from "node-sql-parser";
+import { astMapper, FromTable, parse, parseFirst, SelectFromStatement, Statement, toSql } from "pgsql-ast-parser";
 
 /*
  * ## How to filter S3 Keys based on table partition keys that map to "folders" on S3
@@ -13,26 +13,20 @@ import { AST, From, Parser, Select } from "node-sql-parser";
  * to be applied. Then run the full query on S3 Select over the S3 Objects.
  */
 
-const nodeSqlParserOpts = {
-  database: "Mysql",
-};
-
-export function getTableAndDbFromAST(ast: AST | AST[]): [string | null, string] {
-  if (Array.isArray(ast)) throw new Error("Multiple queries not supported");
+export function getTableAndDbFromAST(ast: Statement): [string | undefined, string] {
   if (ast.type !== "select") throw new Error("Only SELECT queries are supported");
   if (!ast.from) throw new Error("Only SELECT queries with FROM are supported");
   if (ast.from.length !== 1) throw new Error("Only single table sources supported for now");
   const from = ast.from[0];
-  if (Object.prototype.hasOwnProperty.call(from, "type")) throw new Error("DUAL not supported");
-  const { db, table } = <From>from;
-  return [db, table];
+  if (from.type !== "table") throw new Error("Only FROM table supported");
+  const { schema, name: table } = <FromTable>from;
+  return [schema, table];
 }
 
 export function getPlainSQLAndExpr(sql: string): [string, string] {
   const regex = /FROM (\w+)(\.*)(\w*)(\S*)\s*(.*)$/im;
   const matches = sql.match(regex);
   const expr = matches && matches.length >= 5 ? matches[4] : "";
-  //const rest = matches && matches.length >= 6 ? matches[5] : "";
   if (expr.trim() === ";") throw new Error("Multiple queries not supported (;)");
   if (expr.trim()[0] === ".") throw new Error("Can not use format FROM a.b.c");
   const plainSql = sql.replace(regex, `FROM $1$2$3 $5`).trim();
@@ -41,79 +35,57 @@ export function getPlainSQLAndExpr(sql: string): [string, string] {
 
 export function getTableAndDbAndExpr(sql: string): [string, string, string] {
   const [plainSql, expr] = getPlainSQLAndExpr(sql);
-  const parser = new Parser();
-  const ast = parser.astify(plainSql, nodeSqlParserOpts);
-  const [db, table] = getTableAndDbFromAST(ast);
+  const ast = parse(plainSql);
+  if (ast.length !== 1) throw new Error("Multiple queries not supported");
+  const [db, table] = getTableAndDbFromAST(ast[0]);
   if (!db || !table) throw new Error("Both db and table needed");
   return [db, table, expr];
 }
 
-export function getSQLWhereAST(sql: string): AST {
-  const [plainSql] = getPlainSQLAndExpr(sql);
-  const parser = new Parser();
-  const ast = parser.astify(plainSql, nodeSqlParserOpts);
-  getTableAndDbFromAST(ast);
-  return (<Select>ast).where;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function partFilter(partCols: string[], column: any): boolean {
+function partFilter(partCols: string[], column: string): boolean {
   return partCols.some(c => c === column);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function nonPartFilter(partCols: string[], column: any): boolean {
+function nonPartFilter(partCols: string[], column: string): boolean {
   return partCols.every(c => c !== column);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function filterParts(ast: any, partCols: string[], filter: (partCols: string[], column: any) => boolean): any {
-  const nonFiltering = { type: "bool", value: true };
-  if (ast.type === "column_ref") return ast;
-  if (ast.left?.type === "column_ref" && filter(partCols, ast.left.column)) return nonFiltering;
-  if (ast.right?.type === "column_ref" && filter(partCols, ast.right.column)) return nonFiltering;
-  if (!ast.left || !ast.right) return ast;
-  return { ...ast, left: filterParts(ast.left, partCols, filter), right: filterParts(ast.right, partCols, filter) };
+function filterParts(
+  sql: string,
+  partCols: string[],
+  filter: (partCols: string[], column: string) => boolean,
+): SelectFromStatement | null | undefined {
+  return <SelectFromStatement>astMapper(_map => ({
+    ref: c => (filter(partCols, c.name) ? null : c),
+  })).statement(parseFirst(sql));
 }
 
-export function makePartitionSpecificAST(ast: AST | undefined, partitionColumns: string[]): AST | undefined {
-  if (!ast) return;
-  return filterParts(ast, partitionColumns, nonPartFilter);
+export function makePartitionSpecificAST(
+  sql: string,
+  partitionColumns: string[],
+): SelectFromStatement | undefined | null {
+  return filterParts(sql, partitionColumns, nonPartFilter);
 }
 
-export function makeSelectSpecificAST(ast: AST | undefined, partitionColumns: string[]): AST | undefined {
-  if (!ast) return;
-  return filterParts(ast, partitionColumns, partFilter);
+export function makeSelectSpecificAST(sql: string, partitionColumns: string[]): SelectFromStatement | undefined | null {
+  return filterParts(sql, partitionColumns, partFilter);
 }
 
-export function getSQLWhereStringFromAST(where: AST | undefined): string {
-  const parser = new Parser();
-  return parser
-    .sqlify(
-      {
-        where,
-        with: null,
-        type: "select",
-        options: null,
-        distinct: null,
-        columns: "*",
-        from: [{ db: null, table: "s3Object", as: null }],
-        groupby: null,
-        having: null,
-        orderby: null,
-        limit: null,
-      },
-      nodeSqlParserOpts,
-    )
+export function getSQLWhereStringFromAST(selStmt: SelectFromStatement | undefined | null): string {
+  return toSql
+    .statement({
+      where: selStmt?.where,
+      type: "select",
+      from: [{ type: "table", name: "s3Object" }],
+    })
     .substring(25);
 }
 
-function replaceWhereInSQL(sql: string, newWhere: AST | undefined): string {
-  if (!newWhere) return sql;
+function replaceWhereInSQL(sql: string, selStm: SelectFromStatement | undefined | null): string {
+  if (!selStm) return sql;
   const [plainSql] = getPlainSQLAndExpr(sql);
-  const parser = new Parser();
-  const ast = parser.astify(plainSql, nodeSqlParserOpts);
-  return parser.sqlify(<Select>{ ...ast, where: newWhere }, nodeSqlParserOpts).replace(/`/g, "");
+  const ast = parseFirst(plainSql);
+  return toSql.statement(<SelectFromStatement>{ ...ast, where: selStm?.where });
 }
 
 export function getSQLLimit(sql: string): number {
@@ -127,9 +99,9 @@ export function setSQLLimit(sql: string, limit: number): string {
 }
 
 export function getPartsOnlySQLWhereString(expression: string, partitionColumns: string[]): string {
-  return getSQLWhereStringFromAST(makePartitionSpecificAST(getSQLWhereAST(expression), partitionColumns));
+  return getSQLWhereStringFromAST(makePartitionSpecificAST(expression, partitionColumns));
 }
 
 export function getNonPartsSQL(expression: string, partitionColumns: string[]): string {
-  return replaceWhereInSQL(expression, makeSelectSpecificAST(getSQLWhereAST(expression), partitionColumns));
+  return replaceWhereInSQL(expression, makeSelectSpecificAST(expression, partitionColumns));
 }
