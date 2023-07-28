@@ -114,30 +114,7 @@ describe.only("Non-class based s3selectable returns correct results", () => {
     expect(glueGetPartitionsCalled).toEqual(1); // 1 table
     expect(s3ListObjectsV2Called).toEqual(1); // 1 partition
     expect(selectObjectContent).toEqual(10); // 10 objects
-    expect(rows.map(row => Buffer.from(row).toString())).toMatchInlineSnapshot(`
-      Array [
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-      ]
-    `);
+    expect(rows.map(row => Buffer.from(row).toString())).toMatchSnapshot();
   });
 
   it("no data payload", async () => {

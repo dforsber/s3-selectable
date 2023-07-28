@@ -1,0 +1,26 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Non-class based s3selectable returns correct results valid output 1`] = `
+[
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+]
+`;

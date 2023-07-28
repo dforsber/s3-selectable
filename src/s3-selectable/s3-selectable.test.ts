@@ -128,12 +128,7 @@ describe("Test selectObjectContent", () => {
       readable.on("end", () => resolve(rows));
     });
     await new Promise(r => setTimeout(r, 1000));
-    expect(rows).toMatchInlineSnapshot(`
-      Array [
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-      ]
-    `);
+    expect(rows).toMatchSnapshot();
   });
 
   it("selectObjectContent throws when Expression is empty", async () => {
@@ -169,30 +164,7 @@ describe("Test selectObjectContent", () => {
       });
       rowsStream?.on("end", () => r(rows));
     });
-    expect(rows).toMatchInlineSnapshot(`
-      Array [
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-      ]
-    `);
+    expect(rows).toMatchSnapshot();
   });
 
   it("explain select works in case of filtering does not produce any keys", async () => {
@@ -201,36 +173,7 @@ describe("Test selectObjectContent", () => {
     const res = await selectable.explainSelect({
       selectParams: { Expression: sql },
     });
-    expect(res).toMatchInlineSnapshot(`
-      Object {
-        "partitionFilter": "SELECT partition FROM partitions WHERE \`elb_response_code\` = 'nonsense' AND \`ssl_protocol\` = 'badInput'",
-        "preparedSelect": Object {
-          "limit": 0,
-          "s3Keys": Array [],
-          "selectParams": Object {
-            "Bucket": "dummy-test-bucket",
-            "Expression": "SELECT * FROM db.t WHERE TRUE AND TRUE",
-            "ExpressionType": "SQL",
-            "InputSerialization": Object {
-              "Parquet": Object {},
-            },
-            "OutputSerialization": Object {
-              "JSON": Object {},
-            },
-          },
-        },
-        "tableInfo": Object {
-          "Bucket": "dummy-test-bucket",
-          "InputSerialization": Object {
-            "Parquet": Object {},
-          },
-          "PartitionColumns": Array [
-            "ssl_protocol",
-            "elb_response_code",
-          ],
-        },
-      }
-    `);
+    expect(res).toMatchSnapshot();
   });
 
   it("select works in case of filtering does not produce any keys", async () => {
@@ -248,47 +191,7 @@ describe("Test selectObjectContent", () => {
     const res = await selectable.explainSelect({
       selectParams: { Expression: sql },
     });
-    expect(res).toMatchInlineSnapshot(`
-      Object {
-        "partitionFilter": "SELECT partition FROM partitions WHERE \`elb_response_code\` = '302' AND \`ssl_protocol\` = '-'",
-        "preparedSelect": Object {
-          "limit": 0,
-          "s3Keys": Array [
-            "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00000",
-            "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00001",
-            "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00002",
-            "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00003",
-            "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00004",
-            "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00005",
-            "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00006",
-            "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00007",
-            "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00008",
-            "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00009",
-          ],
-          "selectParams": Object {
-            "Bucket": "dummy-test-bucket",
-            "Expression": "SELECT * FROM db.t WHERE TRUE AND TRUE",
-            "ExpressionType": "SQL",
-            "InputSerialization": Object {
-              "Parquet": Object {},
-            },
-            "OutputSerialization": Object {
-              "JSON": Object {},
-            },
-          },
-        },
-        "tableInfo": Object {
-          "Bucket": "dummy-test-bucket",
-          "InputSerialization": Object {
-            "Parquet": Object {},
-          },
-          "PartitionColumns": Array [
-            "ssl_protocol",
-            "elb_response_code",
-          ],
-        },
-      }
-    `);
+    expect(res).toMatchSnapshot();
   });
 
   it("selectObjectContent provides correct results with onDataHandler and onEndHandler", async () => {
@@ -302,30 +205,7 @@ describe("Test selectObjectContent", () => {
         onEndHandler: () => r(rows),
       });
     });
-    expect(rows).toMatchInlineSnapshot(`
-      Array [
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-      ]
-    `);
+    expect(rows).toMatchSnapshot();
   });
 
   it("selectObjectContent provides correct results with onDataHandler and onEndHandler", async () => {
@@ -339,30 +219,7 @@ describe("Test selectObjectContent", () => {
         onEndHandler: () => r(rows),
       });
     });
-    expect(rows).toMatchInlineSnapshot(`
-      Array [
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-      ]
-    `);
+    expect(rows).toMatchSnapshot();
   });
 
   it("selectObjectContent uses LIMIT 2 by returning only 2 rows", async () => {
@@ -377,12 +234,7 @@ describe("Test selectObjectContent", () => {
         onEndHandler: () => r(rows),
       });
     });
-    expect(rows).toMatchInlineSnapshot(`
-      Array [
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-      ]
-    `);
+    expect(rows).toMatchSnapshot();
   });
 
   it("selectObjectContent uses LIMIT 42 by returning all rows", async () => {
@@ -397,30 +249,7 @@ describe("Test selectObjectContent", () => {
         onEndHandler: () => r(rows),
       });
     });
-    expect(rows).toMatchInlineSnapshot(`
-      Array [
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":1,\\"value\\":\\"test1\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-        "{\\"id\\":2,\\"value\\":\\"test2\\"}",
-      ]
-    `);
+    expect(rows).toMatchSnapshot();
   });
 
   it("throws when stream does not contain Payload", async () => {

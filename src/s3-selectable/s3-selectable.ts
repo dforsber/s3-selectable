@@ -32,7 +32,7 @@ export class S3Selectable {
   private s3bucket!: string;
   private partitionsFilter!: PartitionPreFilter;
   private wherePartsFilteringSql!: string;
-  private merged!: stream;
+  private merged!: NodeJS.ReadWriteStream;
   private mapper = new GlueTableToS3Key({
     s3: this.props.s3,
     glue: this.props.glue,
@@ -42,7 +42,7 @@ export class S3Selectable {
 
   constructor(public props: IS3Selectable) {}
 
-  public async select(params: ISelect): Promise<stream | undefined> {
+  public async select(params: ISelect): Promise<NodeJS.ReadWriteStream | undefined> {
     return this.executeSelect(await this.prepareSelect(params));
   }
 
@@ -65,7 +65,7 @@ export class S3Selectable {
     return { ...params, limit, s3Keys, selectParams };
   }
 
-  private async executeSelect(params: IPreparedSelect): Promise<stream | undefined> {
+  private async executeSelect(params: IPreparedSelect): Promise<NodeJS.ReadWriteStream | undefined> {
     const { s3Keys, selectParams, limit } = params;
     await this.getMergedStream(s3Keys, selectParams);
     this.setHandlers({ ...params, selectParams }, limit);

@@ -1,0 +1,81 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`When fetching partitioning information correctly identifies table information (CSV) 1`] = `
+{
+  "Bucket": "dummy-test-bucket",
+  "InputSerialization": {
+    "CSV": {},
+    "CompressionType": "GZIP",
+  },
+  "PartitionColumns": [],
+}
+`;
+
+exports[`When fetching partitioning information correctly identifies table information (CSV) 2`] = `
+{
+  "Bucket": "dummy-test-bucket",
+  "InputSerialization": {
+    "CSV": {},
+    "CompressionType": "GZIP",
+  },
+  "PartitionColumns": [],
+}
+`;
+
+exports[`When fetching partitioning information correctly identifies table information (JSON) 1`] = `
+{
+  "Bucket": "dummy-test-bucket",
+  "InputSerialization": {
+    "JSON": {
+      "Type": "DOCUMENT",
+    },
+  },
+  "PartitionColumns": [],
+}
+`;
+
+exports[`When fetching partitioning information correctly identifies table information (JSON) 2`] = `
+{
+  "Bucket": "dummy-test-bucket",
+  "InputSerialization": {
+    "JSON": {
+      "Type": "DOCUMENT",
+    },
+  },
+  "PartitionColumns": [],
+}
+`;
+
+exports[`When fetching partitioning information correctly identifies table information (Parquet) 1`] = `
+{
+  "Bucket": "dummy-test-bucket",
+  "InputSerialization": {
+    "Parquet": {},
+  },
+  "PartitionColumns": [
+    "ssl_protocol",
+    "elb_response_code",
+  ],
+}
+`;
+
+exports[`When fetching partitioning information correctly identifies table information (Parquet) 2`] = `
+{
+  "Bucket": "dummy-test-bucket",
+  "InputSerialization": {
+    "Parquet": {},
+  },
+  "PartitionColumns": [
+    "ssl_protocol",
+    "elb_response_code",
+  ],
+}
+`;
+
+exports[`When fetching partitioning information correctly identifies table information (unknown) 1`] = `
+{
+  "Bucket": "dummy-test-bucket",
+  "InputSerialization": undefined,
+  "PartitionColumns": [],
+}
+`;

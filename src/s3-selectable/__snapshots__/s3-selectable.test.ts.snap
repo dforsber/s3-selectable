@@ -1,0 +1,188 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Test selectObjectContent explain select works 1`] = `
+{
+  "partitionFilter": "SELECT partition FROM partitions WHERE \`elb_response_code\` = '302' AND \`ssl_protocol\` = '-'",
+  "preparedSelect": {
+    "limit": 0,
+    "s3Keys": [
+      "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00000",
+      "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00001",
+      "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00002",
+      "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00003",
+      "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00004",
+      "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00005",
+      "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00006",
+      "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00007",
+      "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00008",
+      "Unsaved/2020/05/25/tables/63e1dd93-76d5-497f-8db7-bab5861fe14e/ssl_protocol=-/elb_response_code=302/20200525_195025_00011_xgnnv_bucket-00009",
+    ],
+    "selectParams": {
+      "Bucket": "dummy-test-bucket",
+      "Expression": "SELECT * FROM db.t WHERE TRUE AND TRUE",
+      "ExpressionType": "SQL",
+      "InputSerialization": {
+        "Parquet": {},
+      },
+      "OutputSerialization": {
+        "JSON": {},
+      },
+    },
+  },
+  "tableInfo": {
+    "Bucket": "dummy-test-bucket",
+    "InputSerialization": {
+      "Parquet": {},
+    },
+    "PartitionColumns": [
+      "ssl_protocol",
+      "elb_response_code",
+    ],
+  },
+}
+`;
+
+exports[`Test selectObjectContent explain select works in case of filtering does not produce any keys 1`] = `
+{
+  "partitionFilter": "SELECT partition FROM partitions WHERE \`elb_response_code\` = 'nonsense' AND \`ssl_protocol\` = 'badInput'",
+  "preparedSelect": {
+    "limit": 0,
+    "s3Keys": [],
+    "selectParams": {
+      "Bucket": "dummy-test-bucket",
+      "Expression": "SELECT * FROM db.t WHERE TRUE AND TRUE",
+      "ExpressionType": "SQL",
+      "InputSerialization": {
+        "Parquet": {},
+      },
+      "OutputSerialization": {
+        "JSON": {},
+      },
+    },
+  },
+  "tableInfo": {
+    "Bucket": "dummy-test-bucket",
+    "InputSerialization": {
+      "Parquet": {},
+    },
+    "PartitionColumns": [
+      "ssl_protocol",
+      "elb_response_code",
+    ],
+  },
+}
+`;
+
+exports[`Test selectObjectContent first verify mockedReadable 1`] = `
+[
+  "{"id":1,"value":"test1"}",
+  "{"id":2,"value":"test2"}",
+]
+`;
+
+exports[`Test selectObjectContent selectObjectContent provides correct results 1`] = `
+[
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+]
+`;
+
+exports[`Test selectObjectContent selectObjectContent provides correct results with onDataHandler and onEndHandler 1`] = `
+[
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+]
+`;
+
+exports[`Test selectObjectContent selectObjectContent provides correct results with onDataHandler and onEndHandler 2`] = `
+[
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+]
+`;
+
+exports[`Test selectObjectContent selectObjectContent uses LIMIT 2 by returning only 2 rows 1`] = `
+[
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+]
+`;
+
+exports[`Test selectObjectContent selectObjectContent uses LIMIT 42 by returning all rows 1`] = `
+[
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":1,"value":"test1"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+  "{"id":2,"value":"test2"}",
+]
+`;
