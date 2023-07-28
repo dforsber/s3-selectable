@@ -46,7 +46,10 @@ async function insertPartitions(db: Database, parts: string[], partCols: string[
 export class PartitionPreFilter {
   private partsTable = createTable(this.partCols, this.parts);
 
-  constructor(private parts: string[], private partCols: string[]) {}
+  constructor(
+    private parts: string[],
+    private partCols: string[],
+  ) {}
 
   public async filterPartitions(where: string | null | undefined): Promise<string[]> {
     if (!where) return this.parts;
