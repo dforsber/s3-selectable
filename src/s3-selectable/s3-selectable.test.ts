@@ -1,9 +1,12 @@
-import { GetPartitionsRequest, GetTableRequest, Glue } from "@aws-sdk/client-glue";
+import { mockClient } from "aws-sdk-client-mock";
+import { GetPartitionsCommand, GetTableCommand, Glue } from "@aws-sdk/client-glue";
 import { IS3Selectable, S3Selectable } from "./s3-selectable";
 import { ISelect, TS3SelectObjectContent } from "./select-types";
-import { ListObjectsV2CommandInput, S3, SelectObjectContentCommandInput } from "@aws-sdk/client-s3";
+import { ListObjectsV2Command, S3, SelectObjectContentCommand } from "@aws-sdk/client-s3";
 import { Readable, ReadableOptions } from "stream";
 import { testTableKeys, testTableParquet, testTablePartitions } from "../common/fixtures/glue-table";
+import { GlueClient } from "@aws-sdk/client-glue";
+import { S3Client } from "@aws-sdk/client-s3";
 
 import { IS3selectableNonClass } from "./s3-selectable-nonclass";
 
@@ -11,9 +14,6 @@ export function getClassParams(sql = ""): IS3selectableNonClass {
   const region = { region: "eu-west-1" };
   return { sql, s3: new S3(region), glue: new Glue(region) };
 }
-
-jest.mock("@aws-sdk/client-s3");
-jest.mock("@aws-sdk/client-glue");
 
 class MockedSelectStream extends Readable {
   public Payload: Readable | undefined = this;
@@ -62,44 +62,40 @@ let glueGetPartitionsCalled = 0;
 let s3ListObjectsV2Called = 0;
 let selectObjectContent = 0;
 
-jest.mock("@aws-sdk/client-glue", () => ({
-  Glue: function Glue() {
-    return {
-      getTable: jest.fn((params: GetTableRequest) => {
-        glueGetTableCalled++;
-        if (params.Name !== "partitioned_and_bucketed_elb_logs_parquet")
-          return Promise.reject(`Table not found: ${params.Name}`);
-        return Promise.resolve({ Table: testTableParquet });
-      }),
-      getPartitions: jest.fn((_params: GetPartitionsRequest) => {
-        glueGetPartitionsCalled++;
-        return Promise.resolve({ Partitions: testTablePartitions });
-      }),
-    };
-  },
-}));
+const glueMock = mockClient(GlueClient);
+glueMock
+  .on(GetTableCommand)
+  .callsFake(params => {
+    glueGetTableCalled++;
+    if (params.Name !== "partitioned_and_bucketed_elb_logs_parquet")
+      return Promise.reject(`Table not found: ${params.Name}`);
+    return Promise.resolve({ Table: testTableParquet });
+  })
+  .on(GetPartitionsCommand)
+  .callsFake(_params => {
+    glueGetPartitionsCalled++;
+    return Promise.resolve({ Partitions: testTablePartitions });
+  });
 
-jest.mock("@aws-sdk/client-s3", () => ({
-  S3: function S3() {
-    return {
-      listObjectsV2: jest.fn((params: ListObjectsV2CommandInput) => {
-        s3ListObjectsV2Called++;
-        const pref = params.Prefix ?? "";
-        return Promise.resolve({
-          NextContinuationToken: undefined,
-          Contents: testTableKeys.filter(k => k.includes(pref)).map(k => ({ Key: k })),
-          $metadata: null,
-        });
-      }),
-      selectObjectContent: jest.fn((params: SelectObjectContentCommandInput) => {
-        selectObjectContent++;
-        if (params.Expression?.includes("noPayload")) return Promise.resolve(new MockedSelectStreamNoPayload());
-        if (params.Expression?.includes("noData")) return Promise.resolve(new MockedSelectStreamNoData());
-        return Promise.resolve(new MockedSelectStream());
-      }),
-    };
-  },
-}));
+const s3Mock = mockClient(S3Client);
+s3Mock
+  .on(ListObjectsV2Command)
+  .callsFake(params => {
+    s3ListObjectsV2Called++;
+    const pref = params.Prefix ?? "";
+    return Promise.resolve({
+      NextContinuationToken: undefined,
+      Contents: testTableKeys.filter(k => k.includes(pref)).map(k => ({ Key: k })),
+      $metadata: null,
+    });
+  })
+  .on(SelectObjectContentCommand)
+  .callsFake(params => {
+    selectObjectContent++;
+    if (params.Expression?.includes("noPayload")) return Promise.resolve(new MockedSelectStreamNoPayload());
+    if (params.Expression?.includes("noData")) return Promise.resolve(new MockedSelectStreamNoData());
+    return Promise.resolve(new MockedSelectStream());
+  });
 
 function getS3Selectable(params?: Partial<IS3Selectable>): S3Selectable {
   const [databaseName, tableName] = ["default", "partitioned_and_bucketed_elb_logs_parquet"];

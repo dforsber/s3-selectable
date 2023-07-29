@@ -138,9 +138,9 @@ export const testTableCsv = {
   Name: "bucketed_elb_logs",
   DatabaseName: "default",
   Owner: "589434896614",
-  CreateTime: "2019-12-01T21:18:43+00:00",
-  UpdateTime: "2019-12-01T21:18:43+00:00",
-  LastAccessTime: "1970-01-01T00:00:00+00:00",
+  CreateTime: new Date("2019-12-01T21:18:43+00:00"),
+  UpdateTime: new Date("2019-12-01T21:18:43+00:00"),
+  LastAccessTime: new Date("1970-01-01T00:00:00+00:00"),
   Retention: 0,
   StorageDescriptor: {
     Columns: [
@@ -272,9 +272,9 @@ export const testTableJSON = {
   Name: "bucketed_elb_logs_from_partitioned_2_json",
   DatabaseName: "default",
   Owner: "589434896614",
-  CreateTime: "2019-12-01T22:27:47+00:00",
-  UpdateTime: "2019-12-01T22:27:47+00:00",
-  LastAccessTime: "1970-01-01T00:00:00+00:00",
+  CreateTime: new Date("2019-12-01T22:27:47+00:00"),
+  UpdateTime: new Date("2019-12-01T22:27:47+00:00"),
+  LastAccessTime: new Date("1970-01-01T00:00:00+00:00"),
   Retention: 0,
   StorageDescriptor: {
     Columns: [
@@ -406,9 +406,9 @@ export const testTableUnsupportedJSON = {
   Name: "bucketed_elb_logs_unsupported_serde",
   DatabaseName: "default",
   Owner: "589434896614",
-  CreateTime: "2019-12-01T22:27:47+00:00",
-  UpdateTime: "2019-12-01T22:27:47+00:00",
-  LastAccessTime: "1970-01-01T00:00:00+00:00",
+  CreateTime: new Date("2019-12-01T22:27:47+00:00"),
+  UpdateTime: new Date("2019-12-01T22:27:47+00:00"),
+  LastAccessTime: new Date("1970-01-01T00:00:00+00:00"),
   Retention: 0,
   StorageDescriptor: {
     Columns: [

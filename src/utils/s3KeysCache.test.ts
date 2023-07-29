@@ -1,48 +1,43 @@
-import { ListObjectsV2CommandInput, S3 } from "@aws-sdk/client-s3";
+import { mockClient } from "aws-sdk-client-mock";
+import { S3Client } from "@aws-sdk/client-s3";
 import { testTableKeys, testTableKeysNoPartitions } from "../common/fixtures/glue-table";
 
 import { S3KeysCache } from "./s3KeysCache";
 import { errors } from "../common/errors.enum";
 
 let s3ListObjectsV2Called = 0;
+const s3Mock = mockClient(S3Client);
+s3Mock.callsFake(params => {
+  s3ListObjectsV2Called++;
+  const pref = params.Prefix ?? "";
+  if (params.Bucket === "dummy-test-bucket2") {
+    return Promise.resolve({
+      NextContinuationToken: undefined,
+      Contents: testTableKeysNoPartitions.map(k => ({ Key: k })),
+    });
+  }
+  if (params.Bucket === "dummy-test-bucket3") {
+    return Promise.resolve({
+      NextContinuationToken: undefined,
+      Contents: undefined,
+    });
+  }
+  const keys = testTableKeys.filter(k => k.includes(pref)).map(k => ({ Key: k }));
+  const first = keys.slice(0, keys.length / 2);
+  const second = keys.slice(keys.length / 2);
+  if (params.ContinuationToken === "token") {
+    return Promise.resolve({
+      NextContinuationToken: undefined,
+      Contents: second,
+    });
+  }
+  return Promise.resolve({
+    NextContinuationToken: second.length ? "token" : undefined,
+    Contents: first,
+  });
+});
 
-jest.mock("@aws-sdk/client-s3", () => ({
-  S3: function S3() {
-    return {
-      listObjectsV2: jest.fn((params: ListObjectsV2CommandInput) => {
-        s3ListObjectsV2Called++;
-        const pref = params.Prefix ?? "";
-        if (params.Bucket === "dummy-test-bucket2") {
-          return Promise.resolve({
-            NextContinuationToken: undefined,
-            Contents: testTableKeysNoPartitions.map(k => ({ Key: k })),
-          });
-        }
-        if (params.Bucket === "dummy-test-bucket3") {
-          return Promise.resolve({
-            NextContinuationToken: undefined,
-            Contents: undefined,
-          });
-        }
-        const keys = testTableKeys.filter(k => k.includes(pref)).map(k => ({ Key: k }));
-        const first = keys.slice(0, keys.length / 2);
-        const second = keys.slice(keys.length / 2);
-        if (params.ContinuationToken === "token") {
-          return Promise.resolve({
-            NextContinuationToken: undefined,
-            Contents: second,
-          });
-        }
-        return Promise.resolve({
-          NextContinuationToken: second.length ? "token" : undefined,
-          Contents: first,
-        });
-      }),
-    };
-  },
-}));
-
-const s3 = new S3({ region: "eu-west-1" });
+const s3 = new S3Client({ region: "eu-west-1" });
 
 describe("Parameter and return value checks", () => {
   beforeEach(() => {
@@ -125,7 +120,7 @@ describe("AWS s3 sdk returns no Contents", () => {
 
   it("Works when AWS SDK returns Contents undefined (sigh)", async () => {
     const key = "s3://dummy-test-bucket3/Unsaved/2020/05/25/";
-    const s3loc = new S3KeysCache(new S3({ region: "eu-west-1" }));
+    const s3loc = new S3KeysCache(new S3Client({ region: "eu-west-1" }));
     const keys = await s3loc.getKeys(key);
     await expect(keys.sort()).toEqual([]);
     expect(s3ListObjectsV2Called).toEqual(1); // using continuation token, 2 calls

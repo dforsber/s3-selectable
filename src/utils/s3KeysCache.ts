@@ -1,6 +1,6 @@
 import { errors } from "../common/errors.enum";
-import { ListObjectsV2Request } from "@aws-sdk/client-s3";
-import { S3 } from "@aws-sdk/client-s3";
+import { ListObjectsV2Command, ListObjectsV2Request } from "@aws-sdk/client-s3";
+import { S3Client } from "@aws-sdk/client-s3";
 
 function notUndefined<T>(x: T | undefined): x is T {
   return x !== undefined;
@@ -8,7 +8,7 @@ function notUndefined<T>(x: T | undefined): x is T {
 
 export class S3KeysCache {
   private cachedKeys: Map<string, string[]> = new Map();
-  constructor(private s3: S3 | undefined = undefined) {}
+  constructor(private s3: S3Client | undefined = undefined) {}
 
   public async getKeys(location: string): Promise<string[]> {
     if (!this.s3) throw new Error(errors.noS3);
@@ -16,7 +16,8 @@ export class S3KeysCache {
     const params: ListObjectsV2Request = this.getBucketAndPrefix(location);
     const keys: string[] = [];
     do {
-      const { Contents, NextContinuationToken } = { ...(await this.s3.listObjectsV2(params)) };
+      const command = new ListObjectsV2Command(params);
+      const { Contents, NextContinuationToken } = await this.s3.send(command);
       keys.push(...(Contents ?? []).map(k => k.Key).filter(notUndefined));
       params.ContinuationToken = NextContinuationToken;
     } while (params.ContinuationToken);

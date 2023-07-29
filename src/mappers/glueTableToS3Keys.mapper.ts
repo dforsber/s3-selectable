@@ -1,6 +1,5 @@
-import { GetPartitionsRequest, Partition, Table } from "@aws-sdk/client-glue";
+import { GetPartitionsRequest, Partition, Table, GetTableCommand, GetPartitionsCommand } from "@aws-sdk/client-glue";
 import { notUndefined, verifiedPartition } from "../common/helpers";
-
 import { IS3Selectable } from "../s3-selectable/s3-selectable";
 import { InputSerialization } from "@aws-sdk/client-s3";
 import { PartialBy } from "../s3-selectable/select-types";
@@ -43,9 +42,10 @@ export class GlueTableToS3Key {
     if (this.table) return this.table;
     if (!this.params.glue) throw new Error(errors.noGlue);
     const { databaseName: DatabaseName, tableName: Name } = this.params;
-    const table = (await this.params.glue.getTable({ DatabaseName, Name })).Table;
-    if (!table) throw new Error(`Table not found: ${Name}`);
-    return table;
+    const command = new GetTableCommand({ DatabaseName, Name });
+    const { Table } = await this.params.glue.send(command);
+    if (!Table) throw new Error(`Table not found: ${Name}`);
+    return Table;
   }
 
   private async getDefinedTableLocation(): Promise<string> {
@@ -84,7 +84,8 @@ export class GlueTableToS3Key {
     const params: GetPartitionsRequest = { DatabaseName, TableName };
     this.partitions = [];
     do {
-      const { Partitions, NextToken } = await this.params.glue.getPartitions(params);
+      const command = new GetPartitionsCommand(params);
+      const { Partitions, NextToken } = await this.params.glue.send(command);
       if (Partitions) this.partitions.push(...Partitions);
       params.NextToken = NextToken;
     } while (params.NextToken);

@@ -1,5 +1,6 @@
-import { GetPartitionsRequest, GetTableRequest, Glue } from "@aws-sdk/client-glue";
-import { ListObjectsV2CommandInput, S3 } from "@aws-sdk/client-s3";
+import { mockClient } from "aws-sdk-client-mock";
+import { GetPartitionsCommand, GetTableCommand, GlueClient } from "@aws-sdk/client-glue";
+import { S3Client } from "@aws-sdk/client-s3";
 import {
   testTableCsv,
   testTableJSON,
@@ -16,65 +17,54 @@ import {
 
 import { GlueTableToS3Key } from "./glueTableToS3Keys.mapper";
 
-jest.mock("@aws-sdk/client-s3");
-jest.mock("@aws-sdk/client-glue");
-
 let glueGetTableCalled = 0;
 let glueGetPartitionsCalled = 0;
 let s3ListObjectsV2Called = 0;
 
-jest.mock("@aws-sdk/client-glue", () => ({
-  Glue: function Glue() {
-    return {
-      getTable: jest.fn((params: GetTableRequest) => {
-        glueGetTableCalled++;
-        if (params.Name === "noStorage") return Promise.resolve({ Table: testTableWithoutStorage });
-        if (params.Name === "noStorageSerde") return Promise.resolve({ Table: testTableWithoutStorageSerde });
-        if (params.Name === "noStorageLocation") return Promise.resolve({ Table: testTableWithoutStorageLocation });
-        if (params.Name === "noPartitionKeys") return Promise.resolve({ Table: testTableWithoutPartitionKeys });
-        if (params.Name === "partitioned_and_bucketed_elb_logs_parquet")
-          return Promise.resolve({ Table: testTableParquet });
-        if (params.Name === "bucketed_elb_logs") return Promise.resolve({ Table: testTableCsv });
-        if (params.Name === "bucketed_elb_logs_from_partitioned_2_json")
-          return Promise.resolve({ Table: testTableJSON });
-        if (params.Name === "bucketed_elb_logs_unsupported_serde")
-          return Promise.resolve({ Table: testTableUnsupportedJSON });
-        return Promise.resolve({});
-      }),
-      getPartitions: jest.fn((params: GetPartitionsRequest) => {
-        glueGetPartitionsCalled++;
-        if (params.TableName === "noPartitionKeys") return Promise.resolve({});
-        return Promise.resolve({ Partitions: testTablePartitions });
-      }),
-    };
-  },
-}));
+const glueMock = mockClient(GlueClient);
+glueMock
+  .on(GetTableCommand)
+  .callsFake(params => {
+    glueGetTableCalled++;
+    if (params.Name === "noStorage") return Promise.resolve({ Table: testTableWithoutStorage });
+    if (params.Name === "noStorageSerde") return Promise.resolve({ Table: testTableWithoutStorageSerde });
+    if (params.Name === "noStorageLocation") return Promise.resolve({ Table: testTableWithoutStorageLocation });
+    if (params.Name === "noPartitionKeys") return Promise.resolve({ Table: testTableWithoutPartitionKeys });
+    if (params.Name === "partitioned_and_bucketed_elb_logs_parquet")
+      return Promise.resolve({ Table: testTableParquet });
+    if (params.Name === "bucketed_elb_logs") return Promise.resolve({ Table: testTableCsv });
+    if (params.Name === "bucketed_elb_logs_from_partitioned_2_json") return Promise.resolve({ Table: testTableJSON });
+    if (params.Name === "bucketed_elb_logs_unsupported_serde")
+      return Promise.resolve({ Table: testTableUnsupportedJSON });
+    return Promise.resolve({});
+  })
+  .on(GetPartitionsCommand)
+  .callsFake(params => {
+    glueGetPartitionsCalled++;
+    if (params.TableName === "noPartitionKeys") return Promise.resolve({});
+    return Promise.resolve({ Partitions: testTablePartitions });
+  });
 
-jest.mock("@aws-sdk/client-s3", () => ({
-  S3: function S3() {
-    return {
-      listObjectsV2: jest.fn((params: ListObjectsV2CommandInput) => {
-        s3ListObjectsV2Called++;
-        const pref = params.Prefix ?? "";
-        if (params.Bucket === "dummy-test-bucket2") {
-          return Promise.resolve({
-            NextContinuationToken: undefined,
-            Contents: testTableKeysNoPartitions.map(k => ({ Key: k })),
-            $metadata: null,
-          });
-        }
-        return Promise.resolve({
-          NextContinuationToken: undefined,
-          Contents: testTableKeys.filter(k => k.includes(pref)).map(k => ({ Key: k })),
-          $metadata: null,
-        });
-      }),
-    };
-  },
-}));
+const s3Mock = mockClient(S3Client);
+s3Mock.callsFake(params => {
+  s3ListObjectsV2Called++;
+  const pref = params.Prefix ?? "";
+  if (params.Bucket === "dummy-test-bucket2") {
+    return Promise.resolve({
+      NextContinuationToken: undefined,
+      Contents: testTableKeysNoPartitions.map(k => ({ Key: k })),
+      $metadata: null,
+    });
+  }
+  return Promise.resolve({
+    NextContinuationToken: undefined,
+    Contents: testTableKeys.filter(k => k.includes(pref)).map(k => ({ Key: k })),
+    $metadata: null,
+  });
+});
 
-const s3 = new S3({ region: "eu-west-1" });
-const glue = new Glue({ region: "eu-west-1" });
+const s3 = new S3Client({ region: "eu-west-1" });
+const glue = new GlueClient({ region: "eu-west-1" });
 
 let mapper: GlueTableToS3Key;
 const databaseName = "default";

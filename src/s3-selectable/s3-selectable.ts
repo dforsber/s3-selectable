@@ -6,12 +6,17 @@ import {
   TS3SelectObjectContentVerified,
   TS3electObjectContentVerified,
 } from "./select-types";
-import { InputSerialization, S3, SelectObjectContentCommandInput } from "@aws-sdk/client-s3";
+import {
+  InputSerialization,
+  S3Client,
+  SelectObjectContentCommand,
+  SelectObjectContentCommandInput,
+} from "@aws-sdk/client-s3";
 import { TEvents, defaultS3SelectParms } from "./select-types";
 import { getNonPartsSQL, getPartsOnlySQLWhereString, getSQLLimit, setSQLLimit } from "../utils/sql-query.helper";
 import stream, { Readable } from "stream";
 
-import { Glue } from "@aws-sdk/client-glue";
+import { GlueClient } from "@aws-sdk/client-glue";
 import { GlueTableToS3Key } from "../mappers/glueTableToS3Keys.mapper";
 import { PartitionPreFilter } from "../utils/partition-filterer";
 import { createLogger } from "bunyan";
@@ -20,8 +25,8 @@ import mergeStream from "merge-stream";
 export interface IS3Selectable {
   tableName: string;
   databaseName: string;
-  glue: Glue;
-  s3: S3;
+  glue: GlueClient;
+  s3: S3Client;
   logLevel?: "trace" | "debug" | "info" | "warn" | "error" | "fatal"; // Match with Bunyan
 }
 
@@ -140,7 +145,8 @@ export class S3Selectable {
   }
 
   private async getSelectStream(queryParams: SelectObjectContentCommandInput): Promise<Readable> {
-    const selStream = await this.props.s3.selectObjectContent(queryParams);
+    const command = new SelectObjectContentCommand(queryParams);
+    const selStream = await this.props.s3.send(command);
     if (selStream.Payload === undefined) throw new Error(`No select stream for ${queryParams.Key}`);
     return stream.Readable.from(selStream.Payload, { objectMode: true });
   }
